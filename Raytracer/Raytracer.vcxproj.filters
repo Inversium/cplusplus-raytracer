@@ -23,5 +23,8 @@
     <ClInclude Include="BMPWriter.h">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
+    <ClInclude Include="Object.h">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
