@@ -9,15 +9,16 @@
 
 #define HEIGHT 1080
 #define WIDTH 1920
-#define FOV 90                 //fov in degrees
+#define FOV 85                 //fov in degrees
 #define FOVR (FOV * PI / 180)     //fov in radians
 #define BACKGROUND_COLOR vec3(0., 0.2, 0.65)
+#define clamp(x, l, h) std::min(std::max(x, l), h)
 
-vec3 FinalColor(Ray ray, std::vector<Object*>& Scene)
+vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights)
 {
-    Material FinalMat;
-    double MinDist = LLONG_MAX;
+    double MinDist = LONG_MAX;
     bool bHit = false;
+    Hit HitInfo;
 
     for (Object* object : Scene)
     {
@@ -25,17 +26,27 @@ vec3 FinalColor(Ray ray, std::vector<Object*>& Scene)
         if (object->Intersects(ray, TempHit))
         {
             bHit = true;
-            if ((TempHit.Position - ray.Origin).getLength() < MinDist)
+            if (TempHit.Depth < MinDist)
             {
-                MinDist = (TempHit.Position - ray.Origin).getLength();
-                FinalMat = TempHit.Mat;
+                MinDist = TempHit.Depth;
+                HitInfo = TempHit;
             }
+        }
+    }
+
+    double k = 0;
+    if (bHit)
+    {      
+        for (Light& LightSource : Lights)
+        {
+            vec3 LightDir = (LightSource.Position - HitInfo.Position).normalized();
+            k += LightSource.Intensity * std::max(0., LightDir | HitInfo.Normal);
         }
     }
 
     if (bHit)
     {
-        return FinalMat.Color;
+        return (HitInfo.Mat.Color * k).Clamp(0., 1.);
     }
     else
     {
@@ -43,19 +54,20 @@ vec3 FinalColor(Ray ray, std::vector<Object*>& Scene)
     }
 }
 
-void render(vec3* framebuffer, std::vector<Object*> &Scene)
+void render(vec3* framebuffer, std::vector<Object*> &Scene, std::vector<Light>& Lights)
 {
     double AspectRatio = (double)WIDTH / HEIGHT;
 
     vec3 CameraPosition(0., 0., 0.);
     //vec3 CameraDirection(1., 0., 0.);
 
-    for (size_t i = 0; i < HEIGHT; i++)
+    #pragma omp parallel for
+    for (int i = 0; i < HEIGHT; i++)
     {
-        for (size_t j = 0; j < WIDTH; j++)
+        for (int j = 0; j < WIDTH; j++)
         {
-            double SSX = (2. * (j + 0.5)) / (double)WIDTH - 1;  
-            double SSY = (2. * (i + 0.5)) / (double)HEIGHT - 1; 
+            double SSX = 2. * (j + 0.5) / (double)WIDTH - 1;  
+            double SSY = 2. * (i + 0.5) / (double)HEIGHT - 1; 
             SSX *= AspectRatio;
 
             double PixelCameraX = SSX * tan(FOVR / 2.);
@@ -65,7 +77,7 @@ void render(vec3* framebuffer, std::vector<Object*> &Scene)
             ray.Origin = CameraPosition;
             ray.Direction = vec3(PixelCameraX, PixelCameraY, -1.).normalized();
 
-            framebuffer[i * WIDTH + j] = FinalColor(ray, Scene);
+            framebuffer[i * WIDTH + j] = FinalColor(ray, Scene, Lights);
         }
     }
 }
@@ -76,6 +88,7 @@ int main()
     vec3* frame = new vec3[WIDTH * HEIGHT];
 
     std::vector<Object*> Scene;
+    std::vector<Light> Lights;
 
     Sphere* S = new Sphere;
     S->Position = vec3(0., 0., -20.);
@@ -83,8 +96,25 @@ int main()
     S->Mat.Color = vec3(1., 0., 0.);
     Scene.push_back(S);
 
+    Sphere* S1 = new Sphere;
+    S1->Position = vec3(-6., -7., -17.);
+    S1->Radius = 5.;
+    S1->Mat.Color = vec3(1., 1., 0.);
+    Scene.push_back(S1);
 
-    render(frame, Scene);
+    Light L;
+    L.Position = vec3(-20., -20., 0.);
+    L.Intensity = 1.;
+    Lights.push_back(L);
+
+    /*
+    Light L1;
+    L1.Position = vec3(-20., 15., 20.);
+    L1.Intensity = 0.7;
+    Lights.push_back(L1);
+    */
+
+    render(frame, Scene, Lights);
     CreateImage(frame, HEIGHT, WIDTH);
 }
 

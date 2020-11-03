@@ -1,6 +1,13 @@
 #pragma once
 #include "math/Headers/mvector.h"
 
+struct Light
+{
+	vec3 Position = vec3(0., 0., 0.);
+	vec3 Color = vec3(1., 1., 1.);
+	double Intensity = 0;
+};
+
 struct Ray
 {
 	vec3 Origin;
@@ -22,6 +29,7 @@ struct Hit
 	vec3 Position;
 	vec3 Normal;
 	Material Mat;
+	double Depth;
 };
 
 class Object
@@ -38,34 +46,36 @@ class Sphere : public Object
 public:
 	double Radius;
 
-	Sphere() : Radius(0.) {}
+	Sphere() : Radius(5.) {}
 
 	virtual bool Intersects(Ray ray, Hit& OutHit) override
 	{
-		vec3 pos = (Position - ray.Origin); //Vector from Ray origin to Sphere position
+		double t0, t1;
+		vec3 L = (Position - ray.Origin); //Vector from Ray origin to Sphere position
 
-		double tca = pos | ray.Direction.normalized();
+		double tca = L | ray.Direction.normalized();
 		if (tca < 0) return false;
 
-		double d = sqrt(pow(pos.getLength(), 2) - pow(tca, 2)); //Distance from Sphere position to ray
-		if (d > Radius) return false;
+		double d2 = (L | L) - tca * tca; //Distance from Sphere position to ray
+		if (d2 > Radius * Radius) return false;
 
-		double HalfInner = sqrt(Radius * Radius - d * d); //half of the ray length inside sphere
+		double HalfInner = sqrt(Radius * Radius - d2); //half of the ray length inside sphere
 
-		vec3 P1 = ray.Origin + ray.Direction.normalized() * ((pos | ray.Direction.normalized()) - HalfInner);
-		vec3 P2 = ray.Origin + ray.Direction.normalized() * ((pos | ray.Direction.normalized()) + HalfInner);
+		t0 = tca - HalfInner;
+		t1 = tca + HalfInner;	
 
-		
-
-		if ((P1 | ray.Origin) < 0)
+		if (t0 < 0)
 		{
-			P1 = P2;
-			if ((P1 | ray.Origin) < 0) return false;
+			t0 = t1;
+			if (t0 < 0) return false;
 		}
 
+		vec3 HitPoint = ray.Origin + ray.Direction * t0;
 		OutHit.Mat = this->Mat;
-		OutHit.Normal = (P1 - Position).normalized();
-		OutHit.Position = P1;
+		OutHit.Normal = (HitPoint - Position).normalized();
+		OutHit.Position = HitPoint;
+		OutHit.Depth = t0;
+
 		return true;
 	}
 };
