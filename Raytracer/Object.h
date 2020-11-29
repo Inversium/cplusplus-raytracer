@@ -20,6 +20,9 @@ struct Ray
 struct Material
 {
 	vec3 Color;
+	double Roughness = 0.5;
+	double Specular = 0.5;
+	double Albedo = 1.0;
 
 	Material() : Color(0., 0., 0.) {}
 };

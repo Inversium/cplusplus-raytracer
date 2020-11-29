@@ -115,7 +115,8 @@ struct vec3
 
 	bool operator==(const vec3 &other) const;
 	bool operator!=(const vec3 &other) const;
-
+	bool operator<(const vec3& other) const;
+	bool operator>(const vec3& other) const;
 };
 
 
@@ -317,6 +318,14 @@ inline bool vec2::operator==(const vec2 &other) const
 inline bool vec3::operator!=(const vec3 &other) const
 {
 	return !(*this == other);
+}
+inline bool vec3::operator<(const vec3& other) const
+{
+	return this->getLength() < other.getLength();
+}
+inline bool vec3::operator>(const vec3& other) const
+{
+	return this->getLength() > other.getLength();
 }
 inline bool vec2::operator!=(const vec2 &other) const
 {
