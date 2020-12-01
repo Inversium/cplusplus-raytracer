@@ -3,36 +3,45 @@
 
 struct Light
 {
-	vec3 Position = vec3(0., 0., 0.);
-	vec3 Color = vec3(1., 1., 1.);
-	double Intensity = 0;
+	vec3 Position = vec3(0.0, 0.0, 0.0);
+	vec3 Color = vec3(1.0, 1.0, 1.0);
 };
 
 struct Ray
 {
-	vec3 Origin;
-	vec3 Direction;
-	vec3 Intensity;
+	vec3 Origin = vec3(0.0, 0.0, 0.0);
+	vec3 Direction = vec3(0.0, 0.0, -1.0);
 
-	Ray() : Origin(0., 0., 0.), Direction(0., 0., -1.), Intensity(1., 1., 1.) {}
+	Ray(){}
 };
 
 struct Material
 {
 	vec3 Color;
 	double Roughness = 0.5;
-	double Specular = 0.5;
-	double Albedo = 1.0;
+	double Metallic = 0.0;
 
-	Material() : Color(0., 0., 0.) {}
+	Material(){}
+
+	Material(vec3 InColor, double InRoughness, double InMetallic) :
+		Color(InColor),
+		Roughness(InRoughness),
+		Metallic(InMetallic) {}
+
+	static const Material Metal;
+	static const Material RedPlastic;
+	static const Material YellowRubber;
 };
+const Material Material::Metal = Material(vec3(1.0), 0.5, 0.95);
+const Material Material::RedPlastic = Material(vec3(1.0, 0.0, 0.0), 0.01, 0.0);
+const Material Material::YellowRubber = Material(vec3(1.0, 1.0, 0.0), 1.0, 0.0);
 
 struct Hit
 {
 	vec3 Position;
 	vec3 Normal;
 	Material Mat;
-	double Depth;
+	double Depth = (double)LLONG_MAX;
 };
 
 class Object

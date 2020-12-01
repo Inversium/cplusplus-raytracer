@@ -65,7 +65,9 @@ struct vec3
 
 	double x, y, z;
 
-	vec3(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
+	vec3() { x = 0.0; y = 0.0; z = 0.0; }
+
+	vec3(double x, double y, double z) : x(x), y(y), z(z) {}
 
 	vec3(double value) : x(value), y(value), z(value) {}
 
@@ -104,6 +106,7 @@ struct vec3
 	double operator[](const int index) const;
 	vec3 operator-() const;
 
+	vec3 operator/(const vec3& other) const;
 	vec3 operator+(const vec3 &other) const;
 	vec3 operator-(const vec3 &other) const;
 	vec3 operator*(const vec3 &other) const;
@@ -241,6 +244,11 @@ inline vec2 vec2::operator-() const
 	return vec2(-x, -y);
 }
 
+
+inline vec3 vec3::operator/(const vec3& other) const
+{
+	return vec3(x / other.x, y / other.y, z / other.z);
+}
 
 inline vec3 vec3::operator+(const vec3 &other) const
 {

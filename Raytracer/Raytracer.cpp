@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <cmath>
 #include "math/Headers/mvector.h"
 #include "BMPWriter.h"
 #include "Object.h"
@@ -13,45 +14,59 @@
 #define FOVR (FOV * PI / 180)     //fov in radians
 #define BACKGROUND_COLOR vec3(0., 0.2, 0.65)
 #define clamp(x, l, h) std::min(std::max(x, l), h)
-#define AMBIENT vec3(0.01, 0.01, 0.01)
+#define AMBIENT vec3(0.02, 0.02, 0.02)
 
 namespace BRDF
 {
-    static double G(vec3 N, vec3 H, vec3 V, vec3 L)
+    static double G1(double dot, double k)
     {
-        double k1 = 2 * (H | N) * (V | N) / (V | H);
-        double k2 = 2 * (H | N) * (V | N) / (L | H);
-        if (k1 < k2)
-        {
-            return std::min(1., k1);
-        }
-        else
-        {
-            return std::min(1., k1);
-        }
+        return dot / (dot * (1.0 - k) + k);
     }
 
-    static double D(double m, vec3 H, vec3 N)
+    static double G(double NdotL, double NdotV, double Roughness)
     {
-        double k = 1 / (4 * m * m * std::pow(H | N, 4));
-        k *= std::exp((std::pow(H | N, 2) - 1) / (m * m * std::pow(H | N, 2)));
-        return k;
+        double k = (Roughness + 1.0) * (Roughness + 1.0) / 8.0;
+        return G1(NdotL, k) * G1(NdotV, k);
     }
 
-    static double F(vec3 V, vec3 N)
+    static double D(double m, double HdotN)
     {
-        double Kr = std::pow((1.0 - 2.0) / (1.0 + 2.0), 2.0);
-        return Kr + (1.0 - Kr) * pow((1.0 - (N | V)), 5.0);;
+        const double r = std::pow(m, 4);
+        const double d = PI * std::pow(HdotN * HdotN * (r - 1.0) + 1.0, 2);
+        return r / d;
     }
 
-    static double BRDF(vec3 N, vec3 V, vec3 L, double roughness)
+    static double F(double HdotV)
     {
-        L = L.normalized();
-        vec3 H = (L + V).normalized();       
-        return F(V, N) * G(N, H, V, L) * D(roughness, H, N) / ((V | N) * PI + 1e-8);
+        double F0 = std::pow((1.0 - 2.0) / (1.0 + 2.0), 2);
+        return F0 + (1.0 - F0) * std::pow(1.0 - HdotV, 5.0);
+    }
+
+    static double BRDF(vec3 N, vec3 V, vec3 L, double roughness, double &Fresnel)
+    {
+        vec3 H = (L + V).normalized();
+        roughness = clamp(roughness, 1e-2, 1.0);
+        double HdotN = std::max(H | N, 0.0);
+        double VdotN = std::max(V | N, 0.0);
+        double LdotN = std::max(L | N, 0.0);
+        double HdotV = std::max(V | H, 0.0);
+        Fresnel = F(HdotV);
+        return Fresnel * G(LdotN, VdotN, roughness) * D(roughness, HdotN) / std::max(VdotN * LdotN * 4.0, 1e-4);
     }
 }
 
+bool CheckShadow(Ray ray, std::vector<Object*>& Scene)
+{
+    for (Object* object : Scene)
+    {
+        Hit TempHit;
+        if (object->Intersects(ray, TempHit))
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
 vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights)
 {
@@ -73,21 +88,41 @@ vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights
         }
     }
 
-    vec3 k(0, 0, 0);
+    
     if (bHit)
-    {      
+    {   
+        Material M = HitInfo.Mat;
+        vec3 Color(0.0);    
+
         for (Light& LightSource : Lights)
         {
-            vec3 LightDir = (LightSource.Position - HitInfo.Position).normalized();
-            k = k + LightSource.Color * BRDF::BRDF(HitInfo.Normal, ray.Direction, LightSource.Position, HitInfo.Mat.Roughness) * ((LightSource.Position - HitInfo.Position).normalized() | HitInfo.Normal);
-        }
-    }
+            Ray SRay;
+            SRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-5;
+            SRay.Direction = (LightSource.Position - HitInfo.Position).normalized();
+            if (CheckShadow(SRay, Scene)) continue;
 
-    if (bHit)
-    {
-        Material M = HitInfo.Mat;
-        vec3 Kd = clamp(k, vec3(0, 0, 0), vec3(1, 1, 1));
-        return ((AMBIENT + M.Color + k) * M.Albedo).Clamp(0., 1.) ;
+            const vec3 LightDir = (LightSource.Position - HitInfo.Position).normalized();
+            const double NdotL = clamp(HitInfo.Normal | LightDir, 0.0, 1.0);
+
+            const double Distance = (LightSource.Position - HitInfo.Position).getLength();
+            const double Attenuation = 1.0 / (Distance * Distance);
+            const vec3 Radiance = LightSource.Color * Attenuation;
+
+            double F = 0.0;
+            const double rS = BRDF::BRDF(HitInfo.Normal, -ray.Direction, LightDir, HitInfo.Mat.Roughness, F);
+            const double kS = F;
+            const vec3 kD = (vec3(1.0) - vec3(kS)) / PI * NdotL;
+
+            Color = Color + (kD * M.Color * (1.0 - M.Metallic) + vec3(rS)) * Radiance;
+        }
+
+        //Gamma Correction
+        Color = Color / (Color + vec3(1.0));
+        Color.x = std::pow(Color.x, 1.0 / 2.2);
+        Color.y = std::pow(Color.y, 1.0 / 2.2);
+        Color.z = std::pow(Color.z, 1.0 / 2.2);
+
+        return (AMBIENT + Color).Clamp(0.0, 1.0);
     }
     else
     {
@@ -128,45 +163,40 @@ int main()
 {
     vec3* frame = new vec3[WIDTH * HEIGHT];
 
-    Material RedGlass;
-    RedGlass.Color = vec3(1, 0, 0);
-    RedGlass.Albedo = 1.0;
-    RedGlass.Roughness = 0.0;
-    RedGlass.Specular = 2;
-
-    Material YellowRubber;
-    YellowRubber.Color = vec3(1, 1, 0);
-    YellowRubber.Albedo = 1.0;
-    YellowRubber.Roughness = 0.1;
-    YellowRubber.Specular = 2;
-
     std::vector<Object*> Scene;
     std::vector<Light> Lights;
 
     Sphere* S = new Sphere;
-    S->Position = vec3(0., 0., -20.);
-    S->Radius = 10.;
-    S->Mat = RedGlass;
-    //Scene.push_back(S);
+    S->Position = vec3(0.0, 0.0, -30.0);
+    S->Radius = 10.0;
+    S->Mat = Material::RedPlastic;
+    Scene.push_back(S);
 
     Sphere* S1 = new Sphere;
-    S1->Position = vec3(0, 0., -17.);
-    S1->Radius = 7.;
-    S1->Mat = YellowRubber;
+    S1->Position = vec3(15.0, 5.0, -35.0);
+    S1->Radius = 7.0;
+    S1->Mat = Material::YellowRubber;
     Scene.push_back(S1);
 
+    
+    Sphere* S2 = new Sphere;
+    S2->Position = vec3(-15.0, 7.0, -35.0);
+    S2->Radius = 8.0;
+    S2->Mat = Material::Metal;
+    Scene.push_back(S2);
+    
+
     Light L;
-    L.Position = vec3(-20., -20., 0.);
-    L.Intensity = 1.;
-    L.Color = vec3(0.3, 0.3, 0.3);
+    L.Position = vec3(-20.0, -20.0, 0.0);
+    L.Color = vec3(1.0, 1.0, 1.0) * 550.0;
     Lights.push_back(L);
 
-    /*
+    
     Light L1;
-    L1.Position = vec3(-20., 15., 20.);
-    L1.Intensity = 0.7;
+    L1.Position = vec3(100.0, 35.0, 20.0);
+    L1.Color = vec3(1.0, 0.8, 0.4) * 700.0;
     Lights.push_back(L1);
-    */
+    
 
     render(frame, Scene, Lights);
     CreateImage(frame, HEIGHT, WIDTH);
