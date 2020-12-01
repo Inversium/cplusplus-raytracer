@@ -11,6 +11,7 @@
 #define HEIGHT 1080
 #define WIDTH 1920
 #define FOV 85                    //fov in degrees
+#define RAY_SAMPLES 8
 #define FOVR (FOV * PI / 180)     //fov in radians
 #define BACKGROUND_COLOR vec3(0., 0.2, 0.65)
 #define clamp(x, l, h) std::min(std::max(x, l), h)
@@ -68,8 +69,11 @@ bool CheckShadow(Ray ray, std::vector<Object*>& Scene)
     return false;
 }
 
-vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights)
+
+vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights, int Depth = 0)
 {
+    if (Depth > RAY_SAMPLES) return BACKGROUND_COLOR;
+
     double MinDist = LONG_MAX;
     bool bHit = false;
     Hit HitInfo;
@@ -113,14 +117,15 @@ vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights
             const double kS = F;
             const vec3 kD = (vec3(1.0) - vec3(kS)) / PI * NdotL;
 
-            Color = Color + (kD * M.Color * (1.0 - M.Metallic) + vec3(rS)) * Radiance;
+            Ray RRay;
+            RRay.Origin = HitInfo.Position;
+            RRay.Direction = ray.Direction.MirrorByVector(HitInfo.Normal);
+            const vec3 Reflected = FinalColor(RRay, Scene, Lights, Depth + 1) * rS;
+
+            Color = Color + (kD * M.Color * (1.0 - M.Metallic) + vec3(rS)) * Radiance + Reflected;
         }
 
-        //Gamma Correction
-        Color = Color / (Color + vec3(1.0));
-        Color.x = std::pow(Color.x, 1.0 / 2.2);
-        Color.y = std::pow(Color.y, 1.0 / 2.2);
-        Color.z = std::pow(Color.z, 1.0 / 2.2);
+        
 
         return (AMBIENT + Color).Clamp(0.0, 1.0);
     }
@@ -153,7 +158,14 @@ void render(vec3* framebuffer, std::vector<Object*> &Scene, std::vector<Light>& 
             ray.Origin = CameraPosition;
             ray.Direction = vec3(PixelCameraX, PixelCameraY, -1.).normalized();
 
-            framebuffer[i * WIDTH + j] = FinalColor(ray, Scene, Lights);
+            vec3 Color = FinalColor(ray, Scene, Lights);
+            //Gamma Correction
+            Color = Color / (Color + vec3(1.0));
+            Color.x = std::pow(Color.x, 1.0 / 2.2);
+            Color.y = std::pow(Color.y, 1.0 / 2.2);
+            Color.z = std::pow(Color.z, 1.0 / 2.2);
+
+            framebuffer[i * WIDTH + j] = Color;
         }
     }
 }
@@ -188,13 +200,13 @@ int main()
 
     Light L;
     L.Position = vec3(-20.0, -20.0, 0.0);
-    L.Color = vec3(1.0, 1.0, 1.0) * 550.0;
+    L.Color = vec3(1.0, 1.0, 1.0) * 950.0;
     Lights.push_back(L);
 
     
     Light L1;
     L1.Position = vec3(100.0, 35.0, 20.0);
-    L1.Color = vec3(1.0, 0.8, 0.4) * 700.0;
+    L1.Color = vec3(1.0, 0.8, 0.4) * 1400.0;
     Lights.push_back(L1);
     
 
