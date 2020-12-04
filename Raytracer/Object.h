@@ -30,11 +30,13 @@ struct Material
 
 	static const Material Metal;
 	static const Material RedPlastic;
+	static const Material BluePlastic;
 	static const Material YellowRubber;
 };
-const Material Material::Metal = Material(vec3(1.0), 0.5, 0.95);
-const Material Material::RedPlastic = Material(vec3(1.0, 0.0, 0.0), 0.01, 0.0);
+const Material Material::Metal = Material(vec3(1.0), 0.25, 1.0);
+const Material Material::RedPlastic = Material(vec3(1.0, 0.0, 0.0), 0.0, 0.0);
 const Material Material::YellowRubber = Material(vec3(1.0, 1.0, 0.0), 1.0, 0.0);
+const Material Material::BluePlastic = Material(vec3(0.1, 0.1, 1.0), 0.0, 0.0);
 
 struct Hit
 {
@@ -92,3 +94,29 @@ public:
 	}
 };
 
+class Plane : public Object
+{
+public:
+	vec3 Normal;
+
+	Plane() : Normal(vec3(0.0, 0.0, 1.0)) {}
+
+	virtual bool Intersects(Ray ray, Hit& OutHit) override
+	{
+		double denom = Normal | ray.Direction;
+		if (abs(denom) > 1e-8)
+		{
+			double t = -((ray.Origin - Position) | Normal) / denom;
+			if (t >= 0)
+			{
+				vec3 HitPoint = ray.Origin + ray.Direction * t;
+				OutHit.Mat = this->Mat;
+				OutHit.Normal = Normal;
+				OutHit.Position = HitPoint;
+				OutHit.Depth = t;
+				return true;
+			}
+		}
+		return false;
+	}
+};

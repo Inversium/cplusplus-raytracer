@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <iomanip>
 #include "math/Headers/mvector.h"
 #include "BMPWriter.h"
 #include "Object.h"
@@ -11,11 +12,12 @@
 #define HEIGHT 1080
 #define WIDTH 1920
 #define FOV 85                    //fov in degrees
-#define RAY_SAMPLES 8
+#define RAY_SAMPLES 1
 #define FOVR (FOV * PI / 180)     //fov in radians
 #define BACKGROUND_COLOR vec3(0., 0.2, 0.65)
 #define clamp(x, l, h) std::min(std::max(x, l), h)
 #define AMBIENT vec3(0.02, 0.02, 0.02)
+#define SHADOW_ENABLED 0
 
 namespace BRDF
 {
@@ -53,6 +55,17 @@ namespace BRDF
         double HdotV = std::max(V | H, 0.0);
         Fresnel = F(HdotV);
         return Fresnel * G(LdotN, VdotN, roughness) * D(roughness, HdotN) / std::max(VdotN * LdotN * 4.0, 1e-4);
+    }
+}
+
+void DrawPercent()
+{
+    static uint32_t Pixel = 0;
+    Pixel++;
+    
+    if (Pixel % (HEIGHT * WIDTH / 20) == 0)
+    {
+        std::cout << "Processing... "<< ceil(Pixel * 100.0 / (double)(HEIGHT * WIDTH)) << "%\n";
     }
 }
 
@@ -100,10 +113,12 @@ vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights
 
         for (Light& LightSource : Lights)
         {
+#if SHADOW_ENABLED
             Ray SRay;
             SRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-5;
             SRay.Direction = (LightSource.Position - HitInfo.Position).normalized();
             if (CheckShadow(SRay, Scene)) continue;
+#endif
 
             const vec3 LightDir = (LightSource.Position - HitInfo.Position).normalized();
             const double NdotL = clamp(HitInfo.Normal | LightDir, 0.0, 1.0);
@@ -123,10 +138,12 @@ vec3 FinalColor(Ray ray, std::vector<Object*>& Scene, std::vector<Light>& Lights
             const vec3 Reflected = FinalColor(RRay, Scene, Lights, Depth + 1) * rS;
 
             Color = Color + (kD * M.Color * (1.0 - M.Metallic) + vec3(rS)) * Radiance + Reflected;
+
+            
         }
 
         
-
+        //std::cout << HitInfo.Normal.toString() << std::endl;  
         return (AMBIENT + Color).Clamp(0.0, 1.0);
     }
     else
@@ -166,6 +183,8 @@ void render(vec3* framebuffer, std::vector<Object*> &Scene, std::vector<Light>& 
             Color.z = std::pow(Color.z, 1.0 / 2.2);
 
             framebuffer[i * WIDTH + j] = Color;
+
+            DrawPercent();
         }
     }
 }
@@ -180,33 +199,46 @@ int main()
 
     Sphere* S = new Sphere;
     S->Position = vec3(0.0, 0.0, -30.0);
-    S->Radius = 10.0;
+    S->Radius = 8.0;
     S->Mat = Material::RedPlastic;
     Scene.push_back(S);
 
     Sphere* S1 = new Sphere;
-    S1->Position = vec3(15.0, 5.0, -35.0);
-    S1->Radius = 7.0;
+    S1->Position = vec3(20.0, 0.0, -30.0);
+    S1->Radius = 8.0;
     S1->Mat = Material::YellowRubber;
     Scene.push_back(S1);
 
-    
     Sphere* S2 = new Sphere;
-    S2->Position = vec3(-15.0, 7.0, -35.0);
+    S2->Position = vec3(-20.0, 0.0, -30.0);
     S2->Radius = 8.0;
     S2->Mat = Material::Metal;
     Scene.push_back(S2);
+
+
+    Plane* P = new Plane;
+    P->Position = vec3(0.0, 20.0, 0.0);
+    P->Mat = Material::YellowRubber;
+    P->Normal = vec3(0.0, -1.0, 0.0);
+    Scene.push_back(P);
+
+    Plane* P1 = new Plane;
+    P1->Position = vec3(0.0, 0.0, -45.0);
+    P1->Mat = Material::BluePlastic;
+    P1->Normal = vec3(0.0, 0.0, 1.0);
+    Scene.push_back(P1);
+
     
 
     Light L;
     L.Position = vec3(-20.0, -20.0, 0.0);
-    L.Color = vec3(1.0, 1.0, 1.0) * 950.0;
+    L.Color = vec3(1.0, 1.0, 1.0) * 10950.0;
     Lights.push_back(L);
 
     
     Light L1;
-    L1.Position = vec3(100.0, 35.0, 20.0);
-    L1.Color = vec3(1.0, 0.8, 0.4) * 1400.0;
+    L1.Position = vec3(100.0, 0.0, 20.0);
+    L1.Color = vec3(1.0, 1.0, 1.0) * 10950.0;
     Lights.push_back(L1);
     
 
