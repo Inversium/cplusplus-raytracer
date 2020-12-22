@@ -72,6 +72,7 @@ struct vec3
 	vec3(double value) : x(value), y(value), z(value) {}
 
     vec3(vec2 &v, double z) : x(v.x), y(v.y), z(z) {}
+
 	
 	//returns length of this vector
 	double getLength() const;
