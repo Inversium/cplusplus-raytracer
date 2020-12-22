@@ -1,10 +1,6 @@
-﻿// Raytracer.cpp : Этот файл содержит функцию "main". Здесь начинается и заканчивается выполнение программы.
-//
-
-#include <iostream>
+﻿#include <iostream>
 #include <vector>
 #include <cmath>
-#include <iomanip>
 #include "math/Headers/mvector.h"
 #include "BMPWriter.h"
 #include "OObject.h"
@@ -186,7 +182,7 @@ void Render(vec3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLight>
     const vec3 CameraPosition(0.0, 0.0, 0.0);
     //vec3 CameraDirection(1.0, 0.0, 0.0);
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (size_t i = 0; i < HEIGHT; i++)
     {
         for (size_t j = 0; j < WIDTH; j++)
