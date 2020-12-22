@@ -65,11 +65,14 @@ struct vec3
 
 	double x, y, z;
 
-	vec3(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
+	vec3() { x = 0.0; y = 0.0; z = 0.0; }
+
+	vec3(double x, double y, double z) : x(x), y(y), z(z) {}
 
 	vec3(double value) : x(value), y(value), z(value) {}
 
     vec3(vec2 &v, double z) : x(v.x), y(v.y), z(z) {}
+
 	
 	//returns length of this vector
 	double getLength() const;
@@ -104,6 +107,7 @@ struct vec3
 	double operator[](const int index) const;
 	vec3 operator-() const;
 
+	vec3 operator/(const vec3& other) const;
 	vec3 operator+(const vec3 &other) const;
 	vec3 operator-(const vec3 &other) const;
 	vec3 operator*(const vec3 &other) const;
@@ -115,7 +119,8 @@ struct vec3
 
 	bool operator==(const vec3 &other) const;
 	bool operator!=(const vec3 &other) const;
-
+	bool operator<(const vec3& other) const;
+	bool operator>(const vec3& other) const;
 };
 
 
@@ -241,6 +246,11 @@ inline vec2 vec2::operator-() const
 }
 
 
+inline vec3 vec3::operator/(const vec3& other) const
+{
+	return vec3(x / other.x, y / other.y, z / other.z);
+}
+
 inline vec3 vec3::operator+(const vec3 &other) const
 {
 	return vec3(x + other.x, y + other.y, z + other.z);
@@ -317,6 +327,14 @@ inline bool vec2::operator==(const vec2 &other) const
 inline bool vec3::operator!=(const vec3 &other) const
 {
 	return !(*this == other);
+}
+inline bool vec3::operator<(const vec3& other) const
+{
+	return this->getLength() < other.getLength();
+}
+inline bool vec3::operator>(const vec3& other) const
+{
+	return this->getLength() > other.getLength();
 }
 inline bool vec2::operator!=(const vec2 &other) const
 {
