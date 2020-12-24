@@ -123,7 +123,7 @@ const unsigned char* make_header(const unsigned int height, const unsigned int w
     return output;
 }
 
-void CreateImage(vec3* framebuffer, const unsigned int height, const unsigned int width, const char* FileName = "output.bmp")
+void CreateImage(Vector3* framebuffer, const unsigned int height, const unsigned int width, const char* FileName = "output.bmp")
 {
     FILE* bmp = nullptr;
     fopen_s(&bmp, FileName, "wb");

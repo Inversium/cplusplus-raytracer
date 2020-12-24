@@ -3,29 +3,29 @@
 
 struct RLight
 {
-	vec3 Position = vec3(0.0, 0.0, 0.0);
-	vec3 Color = vec3(1.0, 1.0, 1.0);
+	Vector3 Position = Vector3(0.0, 0.0, 0.0);
+	Vector3 Color = Vector3(1.0, 1.0, 1.0);
 
 	RLight() = default;
 };
 
 struct RRay
 {
-	vec3 Origin = vec3(0.0, 0.0, 0.0);
-	vec3 Direction = vec3(0.0, 0.0, -1.0);
+	Vector3 Origin = Vector3(0.0, 0.0, 0.0);
+	Vector3 Direction = Vector3(0.0, 0.0, -1.0);
 
 	RRay() = default;
 };
 
 struct RMaterial
 {
-	vec3 Color;
+	Vector3 Color;
 	double Roughness = 0.5;
 	double Metallic = 0.0;
 
 	RMaterial() = default;
 
-	RMaterial(const vec3 InColor, const double InRoughness, const double InMetallic) :
+	RMaterial(const Vector3 InColor, const double InRoughness, const double InMetallic) :
 		Color(InColor),
 		Roughness(InRoughness),
 		Metallic(InMetallic) {}
@@ -35,15 +35,15 @@ struct RMaterial
 	static const RMaterial BluePlastic;
 	static const RMaterial YellowRubber;
 };
-const RMaterial RMaterial::Metal = RMaterial(vec3(1.0), 0.25, 1.0);
-const RMaterial RMaterial::RedPlastic = RMaterial(vec3(1.0, 0.0, 0.0), 0.0, 0.0);
-const RMaterial RMaterial::YellowRubber = RMaterial(vec3(1.0, 1.0, 0.0), 1.0, 0.0);
-const RMaterial RMaterial::BluePlastic = RMaterial(vec3(0.1, 0.1, 1.0), 0.0, 0.0);
+const RMaterial RMaterial::Metal = RMaterial(Vector3(1.0), 0.25, 1.0);
+const RMaterial RMaterial::RedPlastic = RMaterial(Vector3(1.0, 0.0, 0.0), 0.0, 0.0);
+const RMaterial RMaterial::YellowRubber = RMaterial(Vector3(1.0, 1.0, 0.0), 1.0, 0.0);
+const RMaterial RMaterial::BluePlastic = RMaterial(Vector3(0.1, 0.1, 1.0), 0.0, 0.0);
 
 struct RHit
 {
-	vec3 Position;
-	vec3 Normal;
+	Vector3 Position;
+	Vector3 Normal;
 	RMaterial Mat;
 	double Depth = (double)LLONG_MAX;
 };
@@ -52,9 +52,9 @@ class OObject
 {
 public:
 	RMaterial Mat;
-	vec3 Position;
+	Vector3 Position;
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) { return false; }
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const { return false; }
 };
 
 class OSphere : public OObject
@@ -64,11 +64,11 @@ public:
 
 	OSphere() : Radius(5.) {}
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) override
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
 	{
-		const vec3 L = (Position - Ray.Origin); //Vector from Ray origin to Sphere position
+		const Vector3 L = (Position - Ray.Origin); //Vector from Ray origin to Sphere position
 
-		const double tca = L | Ray.Direction.normalized();
+		const double tca = L | Ray.Direction.Normalized();
 		if (tca < 0) return false;
 
 		const double d2 = (L | L) - tca * tca; //Distance from Sphere position to ray
@@ -85,9 +85,9 @@ public:
 			if (t0 < 0) return false;
 		}
 
-		const vec3 HitPoint = Ray.Origin + Ray.Direction * t0;
+		const Vector3 HitPoint = Ray.Origin + Ray.Direction * t0;
 		OutHit.Mat = this->Mat;
-		OutHit.Normal = (HitPoint - Position).normalized();
+		OutHit.Normal = (HitPoint - Position).Normalized();
 		OutHit.Position = HitPoint;
 		OutHit.Depth = t0;
 
@@ -98,11 +98,11 @@ public:
 class OPlane : public OObject
 {
 public:
-	vec3 Normal;
+	Vector3 Normal;
 
-	OPlane() : Normal(vec3(0.0, 1.0, 0.0)) {}
+	OPlane() : Normal(Vector3(0.0, 1.0, 0.0)) {}
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) override
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
 	{
 		const double Denom = Normal | Ray.Direction;
 		if (abs(Denom) > 1e-10)
