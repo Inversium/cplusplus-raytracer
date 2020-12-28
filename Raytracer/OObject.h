@@ -34,11 +34,13 @@ struct RMaterial
 	static const RMaterial RedPlastic;
 	static const RMaterial BluePlastic;
 	static const RMaterial YellowRubber;
+	static const RMaterial Mirror;
 };
 const RMaterial RMaterial::Metal = RMaterial(Vector3(1.0), 0.25, 1.0);
 const RMaterial RMaterial::RedPlastic = RMaterial(Vector3(1.0, 0.0, 0.0), 0.0, 0.0);
 const RMaterial RMaterial::YellowRubber = RMaterial(Vector3(1.0, 1.0, 0.0), 1.0, 0.0);
 const RMaterial RMaterial::BluePlastic = RMaterial(Vector3(0.1, 0.1, 1.0), 0.0, 0.0);
+const RMaterial RMaterial::Mirror = RMaterial(Vector3(1.0), 0.0, 1.0);
 
 struct RHit
 {
@@ -118,5 +120,52 @@ public:
 			}
 		}
 		return false;
+	}
+};
+
+/* Axis Aligned Bounding Box class, it uses the position member as origin and Extent as the actual extent */
+class OBox : public OObject
+{
+public:
+	Vector3 Extent;
+
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
+	{
+		const Vector3 LocalRayOrigin = Ray.Origin - Position;
+		const Vector3 m = Vector3(1.0) / Ray.Direction;
+		const Vector3 n = m * LocalRayOrigin;
+		const Vector3 k = Vector3::Abs(m) * Extent;
+		const Vector3 t1 = -n - k;
+		const Vector3 t2 = -n + k;
+
+		const double tN = t1.GetMax(); //Near point distance
+		const double tF = t2.GetMin(); //Far point distance
+
+		if (tN > tF || tF < 0.0) return false;
+
+		
+		//If the ray origin is inside the box (tN < 0) the actual intersection position will be at (RayDir * tF)
+		//Same goes for Depth
+		const bool bInsideBox = tN < 0.0;
+		OutHit.Position = Position + (bInsideBox ? LocalRayOrigin + Ray.Direction * tF : LocalRayOrigin + Ray.Direction * tN);
+		OutHit.Depth = bInsideBox ? tF : tN;
+
+		OutHit.Mat = Mat;
+		
+		const Vector3 LocalHit = OutHit.Position - Position;
+		OutHit.Normal = {
+			std::trunc(LocalHit.X / Extent.X * (1.0 + 1e-8)),
+			std::trunc(LocalHit.Y / Extent.Y * (1.0 + 1e-8)),
+			std::trunc(LocalHit.Z / Extent.Z * (1.0 + 1e-8))
+		};
+		if (bInsideBox) OutHit.Normal = -OutHit.Normal;
+
+		return true;
+	}
+
+	void SetByMinMax(const Vector3& VMin, const Vector3& VMax)
+	{
+		Position = (VMax + VMin) / 2;
+		Extent = (VMax - VMin) / 2;
 	}
 };

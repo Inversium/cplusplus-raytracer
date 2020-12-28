@@ -11,12 +11,12 @@
 constexpr uint32_t HEIGHT = 1080;
 constexpr uint32_t WIDTH = 1920;
 constexpr uint8_t FOV = 85;                    //fov in degrees;
-constexpr uint8_t RAY_SAMPLES = 5;
+constexpr uint8_t RAY_SAMPLES = 2;
 
 
 constexpr double FOVR = (FOV * PI / 180);     //fov in radians
 #define BACKGROUND_COLOR Vector3(0.4, 0.2, 0.65)
-#define AMBIENT Vector3(0.07, 0.07, 0.07)
+#define AMBIENT Vector3(0.0, 0.0, 0.0)
 
 template<class T>
 constexpr T Clamp(T X, T Low, T High)
@@ -115,7 +115,7 @@ bool QueryShadow(const RRay Ray, std::vector<OObject*>& Scene, const RLight Ligh
 }
 
 
-Vector3 FinalColor(RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lights, const int Depth = 0)
+Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lights, const int Depth = 0)
 {
     if (Depth >= RAY_SAMPLES) return BACKGROUND_COLOR;
 	
@@ -156,7 +156,7 @@ Vector3 FinalColor(RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& 
             ReflectionRay.Direction = Ray.Direction.MirrorByVector(HitInfo.Normal);
             const Vector3 ReflectedLight = FinalColor(ReflectionRay, Scene, Lights, Depth + 1);
 #else
-            const Vector3 ReflectedLight = 0;
+            const Vector3 ReflectedLight = Vector3(0.0);
 #endif
         	
             Color = Color + (kD * M.Color * (1.0 - M.Metallic) + Vector3(rS)) * Radiance + ReflectedLight * kS;
@@ -235,10 +235,10 @@ int main()
     auto* S2 = new OSphere;
     S2->Position = Vector3(-20.0, 0.0, -30.0);
     S2->Radius = 8.0;
-    S2->Mat = RMaterial::Metal;
+    S2->Mat = RMaterial::BluePlastic;
     Scene.push_back(S2);
 
-
+    /*
     auto* P = new OPlane;
     P->Position = Vector3(0.0, 30.0, 0.0);
     P->Mat = RMaterial::YellowRubber;
@@ -250,18 +250,31 @@ int main()
     P1->Mat = RMaterial::BluePlastic;
     P1->Normal = Vector3(0.0, 0.0, 1.0);
     Scene.push_back(P1);
+    */
+
+    auto* B1 = new OBox;
+    B1->Position = Vector3(-25.0, -20.0, -30.0);
+    B1->Mat = RMaterial::BluePlastic;
+    B1->Extent = Vector3(5.0, 5.0, 5.0);
+    Scene.push_back(B1);
+
+    auto* B2 = new OBox;
+    B2->Position = Vector3(0.0, 0.0, 0.0);
+    B2->Mat = RMaterial::Mirror;
+    B2->Extent = Vector3(40.0, 25.0, 40.0);
+    Scene.push_back(B2);
 
     
 
     RLight L;
     L.Position = Vector3(-20.0, -20.0, 0.0);
-    L.Color = Vector3(1.0, 1.0, 1.0) * 10950.0;
+    L.Color = Vector3(1.0, 1.0, 1.0) * 10000.0;
     Lights.push_back(L);
 
     
     RLight L1;
     L1.Position = Vector3(30.0, -20.0, 20.0);
-    L1.Color = Vector3(1.0, 1.0, 1.0) * 10950.0;
+    L1.Color = Vector3(1.0, 1.0, 1.0) * 10000.0;
     Lights.push_back(L1);
     
 

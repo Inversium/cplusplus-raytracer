@@ -46,6 +46,16 @@ struct Vector2
 	*/
 	Vector2 MirrorByVector(const Vector2& Normal) const;
 
+	double GetMax() const;
+	double GetMin() const;
+
+	Vector2 MaxAxis() const;
+
+	/*Get a copy with sign components*/
+	Vector2 Sign() const;
+
+	static Vector2 Abs(const Vector2& V);
+
 	double operator[](const int Index) const;
 	Vector2 operator-() const;
 
@@ -64,6 +74,10 @@ struct Vector2
 	bool operator>(const Vector2& Other) const;
 	bool operator<=(const Vector2& Other) const;
 	bool operator>=(const Vector2& Other) const;
+
+
+	static const Vector2 I;
+	static const Vector2 J;
 
 };
 
@@ -112,6 +126,15 @@ struct Vector3
 	*/
 	Vector3 MirrorByVector(const Vector3& Normal) const;
 
+	double GetMax() const;
+	double GetMin() const;
+
+	Vector3 MaxAxis() const;
+
+	/*Get a copy with sign components*/
+	Vector3 Sign() const;
+
+	static Vector3 Abs(const Vector3& V);
 
 
 	double operator[](const int Index) const;
@@ -133,7 +156,18 @@ struct Vector3
 	bool operator>(const Vector3& Other) const;
 	bool operator<=(const Vector3& Other) const;
 	bool operator>=(const Vector3& Other) const;
+
+	static const Vector3 I;
+	static const Vector3 J;
+	static const Vector3 K;
 };
+
+const Vector3 Vector3::I = { 1.0, 0.0, 0.0 };
+const Vector3 Vector3::J = { 0.0, 1.0, 0.0 };
+const Vector3 Vector3::K = { 0.0, 0.0, 1.0 };
+
+const Vector2 Vector2::I = { 1.0, 0.0 };
+const Vector2 Vector2::J = { 0.0, 1.0 };
 
 
 inline double Vector3::Length() const
@@ -228,7 +262,86 @@ inline Vector2 Vector2::MirrorByVector(const Vector2& Normal) const
 	return *this - Normal * (2 * (*this | Normal));
 }
 
-Vector3 CrossProduct(Vector3& v1, Vector3& v2)
+inline double Vector3::GetMax() const
+{
+	const double Max = X > Y ? X : Y;
+	return Max > Z ? Max : Z;
+}
+inline double Vector2::GetMax() const
+{
+	return X > Y ? X : Y;
+}
+
+double Vector3::GetMin() const
+{
+	const double Min = X < Y ? X : Y;
+	return Min < Z ? Min : Z;
+}
+double Vector2::GetMin() const
+{
+	return X < Y ? X : Y;
+}
+
+inline Vector3 Vector3::MaxAxis() const
+{
+	int MaxInd = 0;
+	const Vector3 AbsVector = Vector3::Abs(*this);
+	if (AbsVector.Y > AbsVector.X) MaxInd = 1;
+	if (AbsVector.Z > AbsVector[MaxInd]) MaxInd = 2;
+	switch(MaxInd)
+	{
+	case 0: return Vector3::I * this->Sign();
+	case 1: return Vector3::J * this->Sign();
+	case 2: return Vector3::K * this->Sign();
+	default: return { 0.0, 0.0, 0.0 }; //Will never be executed, though
+	}
+}
+inline Vector2 Vector2::MaxAxis() const
+{
+	const Vector2 AbsVector = Vector2::Abs(*this);
+	if(AbsVector.X > AbsVector.Y)
+	{
+		return Vector2::I;
+	}
+	else
+	{
+		return Vector2::J;
+	}
+}
+
+inline Vector3 Vector3::Sign() const
+{
+	return {
+		static_cast<double>(0 < X) - static_cast<double>(X < 0),
+		static_cast<double>(0 < Y) - static_cast<double>(Y < 0),
+		static_cast<double>(0 < Z) - static_cast<double>(Z < 0)
+	};
+}
+inline Vector2 Vector2::Sign() const
+{
+	return {
+		static_cast<double>(0 < X) - static_cast<double>(X < 0),
+		static_cast<double>(0 < Y) - static_cast<double>(Y < 0)
+	};
+}
+
+inline Vector3 Vector3::Abs(const Vector3& V)
+{
+	return {
+		std::abs(V.X),
+		std::abs(V.Y),
+		std::abs(V.Z)
+	};
+}
+inline Vector2 Vector2::Abs(const Vector2& V)
+{
+	return {
+		std::abs(V.X),
+		std::abs(V.Y)
+	};
+}
+
+inline Vector3 CrossProduct(Vector3& v1, Vector3& v2)
 {
 	return v1 ^ v2;
 }
