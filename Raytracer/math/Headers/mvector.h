@@ -8,337 +8,506 @@
 
 
 
-struct vec2 
+struct Vector2
 {
-	double x, y;
+	double X, Y;
 
-	vec2(double x = 0, double y = 0) : x(x), y(y) {}
+	Vector2() : X(0.0), Y(0.0) {}
 
-	vec2(double value) : x(value), y(value) {}
+	Vector2(const double InX, const double InY) : X(InX), Y(InY) {}
+
+	explicit Vector2(const double InValue) : X(InValue), Y(InValue) {}
 
 	//returns length of this vector
-	double getLength() const;
+	double Length() const;
 
 	//returns a normalized copy of an input vector
-	vec2 normalized() const;
+	Vector2 Normalized() const;
 
 	//returns a human readable string for debugging
-	std::string toString() const;
+	std::string ToString() const;
 
 	/*
 	  if vector length greater the max param, set length of this vector to the max
 	  if vector length lesser the min param, set length of this vector to the min
 	  otherwise do nothing
 	*/
-	vec2 Clamp(double min, double max);
+	Vector2 Clamp(const double Min, const double Max);
 
 	//returns true if all components of two vectors are equal within the given tolerance
-	bool Equals(const vec2 &other, double tolerance = 1e-6) const;
+	bool Equals(const Vector2& Other, const double Tolerance = 1e-6) const;
 
 	//return true if vector length == 1
-	bool isNormalized() const;
-	
+	bool IsNormalized() const;
+
 	/*
 	  mirror vector by an input normal
-	  input normal is automatically normalized
+	  input normal is automatically Normalized
 	*/
-	vec2 MirrorByVector(vec2 &normal);
+	Vector2 MirrorByVector(const Vector2& Normal) const;
 
-	double operator[](const int index) const;
-	vec2 operator-() const;
+	double GetMax() const;
+	double GetMin() const;
 
-	vec2 operator+(const vec2 &other) const;
-	vec2 operator-(const vec2 &other) const;
-	vec2 operator*(const vec2 &other) const;
-	double operator|(const vec2 &other) const;
+	Vector2 MaxAxis() const;
 
-	vec2 operator*(const double scale) const;
-	vec2 operator/(const double scale) const;
+	/*Get a copy with sign components*/
+	Vector2 Sign() const;
 
-	bool operator==(const vec2 &other) const;
-	bool operator!=(const vec2 &other) const;
+	static Vector2 Abs(const Vector2& V);
+
+	double operator[](const int Index) const;
+	Vector2 operator-() const;
+
+	Vector2 operator+(const Vector2& Other) const;
+	Vector2 operator-(const Vector2& Other) const;
+	Vector2 operator*(const Vector2& Other) const;
+	Vector2 operator/(const Vector2& Other) const;
+	double operator|(const Vector2& Other) const;
+
+	Vector2 operator*(const double Scale) const;
+	Vector2 operator/(const double Scale) const;
+
+	bool operator==(const Vector2& Other) const;
+	bool operator!=(const Vector2& Other) const;
+	bool operator<(const Vector2& Other) const;
+	bool operator>(const Vector2& Other) const;
+	bool operator<=(const Vector2& Other) const;
+	bool operator>=(const Vector2& Other) const;
+
+
+	static const Vector2 I;
+	static const Vector2 J;
 
 };
 
-struct vec3
+struct Vector3
 {
 
-	double x, y, z;
+	double X, Y, Z;
 
-	vec3() { x = 0.0; y = 0.0; z = 0.0; }
+	Vector3() : X(0.0), Y(0.0), Z(0.0) {}
 
-	vec3(double x, double y, double z) : x(x), y(y), z(z) {}
+	Vector3(const double InX, const double InY, const double InZ) : X(InX), Y(InY), Z(InZ) {}
 
-	vec3(double value) : x(value), y(value), z(value) {}
+	explicit Vector3(const double InValue) : X(InValue), Y(InValue), Z(InValue) {}
 
-    vec3(vec2 &v, double z) : x(v.x), y(v.y), z(z) {}
+	explicit Vector3(const Vector2& V, const double InZ) : X(V.X), Y(V.Y), Z(InZ) {}
 
-	
 	//returns length of this vector
-	double getLength() const;
+	double Length() const;
 
 	//returns a normalized copy of an input vector
-	vec3 normalized() const;
+	Vector3 Normalized() const;
 
 	//returns a human readable string for debugging
-	std::string toString() const;
+	std::string ToString() const;
 
 	/*
 	  if vector length greater the max param, set length of this vector to the max
 	  if vector length lesser the min param, set length of this vector to the min
 	  otherwise do nothing
-	*/ 
-	vec3 Clamp(double min, double max);
-	
+	*/
+	Vector3 Clamp(const double Min, const double Max);
+
 	//returns true if all components of two vectors are equal within the given tolerance
-	bool Equals(const vec3 &other, double tolerance = 1e-6) const;
-	
+	bool Equals(const Vector3& Other, const double Tolerance = 1e-6) const;
+
 	//return true if vector length == 1
-	bool isNormalized() const;
+	bool IsNormalized() const;
+
+	static double Angle(Vector3& v1, Vector3& v2);
+
+	static Vector3 CrossProduct(Vector3& v1, Vector3& v2);
 
 	/*
 	  mirror vector by an input normal
-	  input normal is automatically normalized
+	  input normal is automatically Normalized
 	*/
-	vec3 MirrorByVector(vec3 &normal);
+	Vector3 MirrorByVector(const Vector3& Normal) const;
+
+	double GetMax() const;
+	double GetMin() const;
+
+	Vector3 MaxAxis() const;
+
+	/*Get a copy with sign components*/
+	Vector3 Sign() const;
+
+	static Vector3 Abs(const Vector3& V);
 
 
+	double operator[](const int Index) const;
+	Vector3 operator-() const;
 
-	double operator[](const int index) const;
-	vec3 operator-() const;
+	Vector3 operator+(const Vector3& Other) const;
+	Vector3 operator-(const Vector3& Other) const;
+	Vector3 operator*(const Vector3& Other) const;
+	Vector3 operator/(const Vector3& Other) const;
+	double operator|(const Vector3& Other) const;
+	Vector3 operator^(const Vector3& Other) const;
 
-	vec3 operator/(const vec3& other) const;
-	vec3 operator+(const vec3 &other) const;
-	vec3 operator-(const vec3 &other) const;
-	vec3 operator*(const vec3 &other) const;
-	double operator|(const vec3 &other) const;
-	vec3 operator^(const vec3 &other) const;
+	Vector3 operator*(const double Scale) const;
+	Vector3 operator/(const double Scale) const;
 
-	vec3 operator*(const double scale) const;
-	vec3 operator/(const double scale) const;
+	bool operator==(const Vector3& Other) const;
+	bool operator!=(const Vector3& Other) const;
+	bool operator<(const Vector3& Other) const;
+	bool operator>(const Vector3& Other) const;
+	bool operator<=(const Vector3& Other) const;
+	bool operator>=(const Vector3& Other) const;
 
-	bool operator==(const vec3 &other) const;
-	bool operator!=(const vec3 &other) const;
-	bool operator<(const vec3& other) const;
-	bool operator>(const vec3& other) const;
+	static const Vector3 I;
+	static const Vector3 J;
+	static const Vector3 K;
 };
 
+const Vector3 Vector3::I = { 1.0, 0.0, 0.0 };
+const Vector3 Vector3::J = { 0.0, 1.0, 0.0 };
+const Vector3 Vector3::K = { 0.0, 0.0, 1.0 };
 
-inline double vec3::getLength() const 
-{
-	return sqrt(x * x + y * y + z * z);
-}
-inline double vec2::getLength() const
-{
-	return sqrt(x * x + y * y);
-}
+const Vector2 Vector2::I = { 1.0, 0.0 };
+const Vector2 Vector2::J = { 0.0, 1.0 };
 
-inline vec3 vec3::normalized() const
+
+inline double Vector3::Length() const
 {
-	double l = getLength();
-	return vec3(x / l, y / l, z / l);
+	return sqrt(X * X + Y * Y + Z * Z);
 }
-inline vec2 vec2::normalized() const
+inline double Vector2::Length() const
 {
-	double l = getLength();
-	return vec2(x / l, y / l);
+	return sqrt(X * X + Y * Y);
 }
 
-inline std::string vec3::toString() const
+inline Vector3 Vector3::Normalized() const
 {
-	std::string out = "";
-	out += "X = " + std::to_string(x);
-	out += " Y = " + std::to_string(y);
-	out += " Z = " + std::to_string(z);
-	return out;
+	const double L = Length();
+	return { X / L, Y / L, Z / L };
 }
-inline std::string vec2::toString() const
+inline Vector2 Vector2::Normalized() const
 {
-	std::string out = "";
-	out += "X = " + std::to_string(x);
-	out += " Y = " + std::to_string(y);
-	return out;
+	const double L = Length();
+	return { X / L, Y / L };
 }
 
-inline vec3 vec3::Clamp(double min, double max)
+inline std::string Vector3::ToString() const
 {
-	if (getLength() > max)
+	std::string Out;
+	Out += "X = " + std::to_string(X);
+	Out += " Y = " + std::to_string(Y);
+	Out += " Z = " + std::to_string(Z);
+	return Out;
+}
+inline std::string Vector2::ToString() const
+{
+	std::string Out;
+	Out += "X = " + std::to_string(X);
+	Out += " Y = " + std::to_string(Y);
+	return Out;
+}
+
+inline Vector3 Vector3::Clamp(const double Min, const double Max)
+{
+	if (Length() > Max)
 	{
-		*this = this->normalized() * max;
+		*this = this->Normalized() * Max;
 		return *this;
 	}
-	else if (getLength() < min)
+	else if (Length() < Min)
 	{
-		*this = this->normalized() * min;
-		return *this;
-	}
-	return *this;
-}
-inline vec2 vec2::Clamp(double min, double max)
-{
-	if (getLength() > max)
-	{
-		*this = this->normalized() * max;
-		return *this;
-	}
-	else if (getLength() < min)
-	{
-		*this = this->normalized() * min;
+		*this = this->Normalized() * Min;
 		return *this;
 	}
 	return *this;
 }
-
-inline bool vec3::Equals(const vec3 &other, double tolerance) const
+inline Vector2 Vector2::Clamp(const double Min, const double Max)
 {
-    return std::abs(other.x - x) <= tolerance && std::abs(other.y - y) <= tolerance && std::abs(other.y - y) <= tolerance;
-}
-inline bool vec2::Equals(const vec2 &other, double tolerance) const
-{
-    return std::abs(other.x - x) <= tolerance && std::abs(other.y - y) <= tolerance;
-}
-
-inline bool vec3::isNormalized() const
-{
-    return std::abs(1 - getLength()) < SMALL_NUMBER;
-}
-inline bool vec2::isNormalized() const
-{
-    return std::abs(1 - getLength()) < SMALL_NUMBER;
-} 
-
-inline vec3 vec3::MirrorByVector(vec3 &normal)
-{
-	return *this - normal * (2 * (*this | normal));
-}
-inline vec2 vec2::MirrorByVector(vec2 &normal)
-{
-	return *this - normal * (2 * (*this | normal));
+	if (Length() > Max)
+	{
+		*this = this->Normalized() * Max;
+		return *this;
+	}
+	else if (Length() < Min)
+	{
+		*this = this->Normalized() * Min;
+		return *this;
+	}
+	return *this;
 }
 
-
-inline double vec3::operator[](const int index) const
+inline bool Vector3::Equals(const Vector3& Other, const double Tolerance) const
 {
-    switch (index) {
-    case 0: return x;
-    case 1: return y;
-    case 2: return z;
-    default: throw std::out_of_range("Index for vector out of array (must be in range 0-2)");
-    }
-
+	return std::abs(Other.X - X) <= Tolerance && std::abs(Other.Y - Y) <= Tolerance && std::abs(Other.Y - Y) <= Tolerance;
 }
-inline double vec2::operator[](const int index) const
+inline bool Vector2::Equals(const Vector2& Other, const double Tolerance) const
 {
-    switch (index) {
-    case 0: return x;
-    case 1: return y;
-    default: throw std::out_of_range("Index for vector out of array (must be in range 0-1)");
-    }
+	return std::abs(Other.X - X) <= Tolerance && std::abs(Other.Y - Y) <= Tolerance;
 }
 
-inline vec3 vec3::operator-() const
+inline bool Vector3::IsNormalized() const
 {
-	return vec3(-x, -y, -z);
+	return std::abs(1 - Length()) < SMALL_NUMBER;
 }
-inline vec2 vec2::operator-() const
+inline bool Vector2::IsNormalized() const
 {
-	return vec2(-x, -y);
-}
-
-
-inline vec3 vec3::operator/(const vec3& other) const
-{
-	return vec3(x / other.x, y / other.y, z / other.z);
+	return std::abs(1 - Length()) < SMALL_NUMBER;
 }
 
-inline vec3 vec3::operator+(const vec3 &other) const
+inline Vector3 Vector3::MirrorByVector(const Vector3& Normal) const
 {
-	return vec3(x + other.x, y + other.y, z + other.z);
+	return *this - Normal * (2 * (*this | Normal));
 }
-inline vec2 vec2::operator+(const vec2 &other) const
+inline Vector2 Vector2::MirrorByVector(const Vector2& Normal) const
 {
-	return vec2(x + other.x, y + other.y);
-}
-
-inline vec3 vec3::operator-(const vec3 &other) const
-{
-	return vec3(x - other.x, y - other.y, z - other.z);
-}
-inline vec2 vec2::operator-(const vec2 &other) const
-{
-	return vec2(x - other.x, y - other.y);
+	return *this - Normal * (2 * (*this | Normal));
 }
 
-inline vec3 vec3::operator*(const vec3 &other) const
+inline double Vector3::GetMax() const
 {
-	return vec3(x * other.x, y * other.y, z * other.z);
+	const double Max = X > Y ? X : Y;
+	return Max > Z ? Max : Z;
 }
-inline vec2 vec2::operator*(const vec2 &other) const
+inline double Vector2::GetMax() const
 {
-	return vec2(x * other.x, y * other.y);
-}
-
-inline vec3 vec3::operator^(const vec3 &other) const
-{
-	return vec3
-	(
-		y * other.z - z * other.y,
-		z * other.x - x * other.z,
-		x * other.y - y * other.x
-	);
+	return X > Y ? X : Y;
 }
 
-inline double vec3::operator|(const vec3 &other) const
+double Vector3::GetMin() const
 {
-	return x * other.x + y * other.y + z * other.z;
+	const double Min = X < Y ? X : Y;
+	return Min < Z ? Min : Z;
 }
-inline double vec2::operator|(const vec2 &other) const
+double Vector2::GetMin() const
 {
-	return x * other.x + y * other.y;
-}
-
-inline vec3 vec3::operator*(const double scale) const
-{
-	return vec3(x * scale, y * scale, z * scale);
-}
-inline vec2 vec2::operator*(const double scale) const
-{
-	return vec2(x * scale, y * scale);
+	return X < Y ? X : Y;
 }
 
-inline vec3 vec3::operator/(const double scale) const
+inline Vector3 Vector3::MaxAxis() const
 {
-	return vec3(x / scale, y / scale, z / scale);
+	int MaxInd = 0;
+	const Vector3 AbsVector = Vector3::Abs(*this);
+	if (AbsVector.Y > AbsVector.X) MaxInd = 1;
+	if (AbsVector.Z > AbsVector[MaxInd]) MaxInd = 2;
+	switch(MaxInd)
+	{
+	case 0: return Vector3::I * this->Sign();
+	case 1: return Vector3::J * this->Sign();
+	case 2: return Vector3::K * this->Sign();
+	default: return { 0.0, 0.0, 0.0 }; //Will never be executed, though
+	}
 }
-inline vec2 vec2::operator/(const double scale) const
+inline Vector2 Vector2::MaxAxis() const
 {
-	return vec2(x / scale, y / scale);
+	const Vector2 AbsVector = Vector2::Abs(*this);
+	if(AbsVector.X > AbsVector.Y)
+	{
+		return Vector2::I;
+	}
+	else
+	{
+		return Vector2::J;
+	}
 }
 
-inline bool vec3::operator==(const vec3 &other) const
+inline Vector3 Vector3::Sign() const
 {
-	return x == other.x && y == other.y && z == other.z;
+	return {
+		static_cast<double>(0 < X) - static_cast<double>(X < 0),
+		static_cast<double>(0 < Y) - static_cast<double>(Y < 0),
+		static_cast<double>(0 < Z) - static_cast<double>(Z < 0)
+	};
 }
-inline bool vec2::operator==(const vec2 &other) const
+inline Vector2 Vector2::Sign() const
 {
-	return x == other.x && y == other.y;
+	return {
+		static_cast<double>(0 < X) - static_cast<double>(X < 0),
+		static_cast<double>(0 < Y) - static_cast<double>(Y < 0)
+	};
 }
 
-inline bool vec3::operator!=(const vec3 &other) const
+inline Vector3 Vector3::Abs(const Vector3& V)
 {
-	return !(*this == other);
+	return {
+		std::abs(V.X),
+		std::abs(V.Y),
+		std::abs(V.Z)
+	};
 }
-inline bool vec3::operator<(const vec3& other) const
+inline Vector2 Vector2::Abs(const Vector2& V)
 {
-	return this->getLength() < other.getLength();
+	return {
+		std::abs(V.X),
+		std::abs(V.Y)
+	};
 }
-inline bool vec3::operator>(const vec3& other) const
+
+inline Vector3 CrossProduct(Vector3& v1, Vector3& v2)
 {
-	return this->getLength() > other.getLength();
-}
-inline bool vec2::operator!=(const vec2 &other) const
-{
-	return !(*this == other);
+	return v1 ^ v2;
 }
 
 
+inline double Vector3::operator[](const int Index) const
+{
+	switch (Index) {
+	case 0: return X;
+	case 1: return Y;
+	case 2: return Z;
+	default: throw std::out_of_range("Index for vector out of array (must be in range 0-2)");
+	}
+
+}
+inline double Vector2::operator[](const int Index) const
+{
+	switch (Index) {
+	case 0: return X;
+	case 1: return Y;
+	default: throw std::out_of_range("Index for vector out of array (must be in range 0-1)");
+	}
+}
+
+inline Vector3 Vector3::operator-() const
+{
+	return { -X, -Y, -Z };
+}
+inline Vector2 Vector2::operator-() const
+{
+	return { -X, -Y };
+}
+
+
+inline Vector3 Vector3::operator+(const Vector3& Other) const
+{
+	return { X + Other.X, Y + Other.Y, Z + Other.Z };
+}
+inline Vector2 Vector2::operator+(const Vector2& Other) const
+{
+	return { X + Other.X, Y + Other.Y };
+}
+
+inline Vector3 Vector3::operator-(const Vector3& Other) const
+{
+	return { X - Other.X, Y - Other.Y, Z - Other.Z };
+}
+inline Vector2 Vector2::operator-(const Vector2& Other) const
+{
+	return { X - Other.X, Y - Other.Y };
+}
+
+inline Vector3 Vector3::operator*(const Vector3& Other) const
+{
+	return { X * Other.X, Y * Other.Y, Z * Other.Z };
+}
+inline Vector2 Vector2::operator*(const Vector2& Other) const
+{
+	return { X * Other.X, Y * Other.Y };
+}
+
+inline Vector3 Vector3::operator/(const Vector3& Other) const
+{
+	return { X / Other.X, Y / Other.Y, Z / Other.Z };
+}
+inline Vector2 Vector2::operator/(const Vector2& Other) const
+{
+	return { X / Other.X, Y / Other.Y };
+}
+
+inline Vector3 Vector3::operator^(const Vector3& Other) const
+{
+	return
+	{
+		Y * Other.Z - Z * Other.Y,
+		Z * Other.X - X * Other.Z,
+		X * Other.Y - Y * Other.X
+	};
+}
+
+inline double Vector3::operator|(const Vector3& Other) const
+{
+	return X * Other.X + Y * Other.Y + Z * Other.Z;
+}
+inline double Vector2::operator|(const Vector2& Other) const
+{
+	return X * Other.X + Y * Other.Y;
+}
+
+inline Vector3 Vector3::operator*(const double Scale) const
+{
+	return { X * Scale, Y * Scale, Z * Scale };
+}
+inline Vector2 Vector2::operator*(const double Scale) const
+{
+	return { X * Scale, Y * Scale };
+}
+
+inline Vector3 Vector3::operator/(const double Scale) const
+{
+	return { X / Scale, Y / Scale, Z / Scale };
+}
+inline Vector2 Vector2::operator/(const double Scale) const
+{
+	return { X / Scale, Y / Scale };
+}
+
+inline bool Vector3::operator==(const Vector3& Other) const
+{
+	return this->Equals(Other, SMALL_NUMBER);
+}
+inline bool Vector2::operator==(const Vector2& Other) const
+{
+	return this->Equals(Other, SMALL_NUMBER);
+}
+
+inline bool Vector3::operator!=(const Vector3& Other) const
+{
+	return !(*this == Other);
+}
+inline bool Vector2::operator!=(const Vector2& Other) const
+{
+	return !(*this == Other);
+}
+
+inline bool Vector3::operator<(const Vector3& Other) const
+{
+	return Length() < Other.Length();
+}
+inline bool Vector2::operator<(const Vector2& Other) const
+{
+	return Length() < Other.Length();
+}
+
+inline bool Vector3::operator>(const Vector3& Other) const
+{
+	return Length() > Other.Length();
+}
+inline bool Vector2::operator>(const Vector2& Other) const
+{
+	return Length() < Other.Length();
+}
+
+inline bool Vector3::operator<=(const Vector3& Other) const
+{
+	return Length() <= Other.Length();
+}
+inline bool Vector2::operator<=(const Vector2& Other) const
+{
+	return Length() <= Other.Length();
+}
+
+inline bool Vector3::operator>=(const Vector3& Other) const
+{
+	return Length() >= Other.Length();
+}
+inline bool Vector2::operator>=(const Vector2& Other) const
+{
+	return Length() >= Other.Length();
+}
+
+inline Vector3 operator*(const double Scale, const Vector3& V)
+{
+	return V * Scale;
+}
+inline Vector2 operator*(const double Scale, const Vector2& V)
+{
+	return V * Scale;
+}

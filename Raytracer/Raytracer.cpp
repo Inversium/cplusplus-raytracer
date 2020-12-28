@@ -11,12 +11,12 @@
 constexpr uint32_t HEIGHT = 1080;
 constexpr uint32_t WIDTH = 1920;
 constexpr uint8_t FOV = 85;                    //fov in degrees;
-constexpr uint8_t RAY_SAMPLES = 5;
+constexpr uint8_t RAY_SAMPLES = 2;
 
 
 constexpr double FOVR = (FOV * PI / 180);     //fov in radians
-#define BACKGROUND_COLOR vec3(0.4, 0.2, 0.65)
-#define AMBIENT vec3(0.07, 0.07, 0.07)
+#define BACKGROUND_COLOR Vector3(0.4, 0.2, 0.65)
+#define AMBIENT Vector3(0.0, 0.0, 0.0)
 
 template<class T>
 constexpr T Clamp(T X, T Low, T High)
@@ -54,9 +54,9 @@ namespace BRDF
         }
     }
 
-    static double BRDF(const vec3 N, const vec3 V, const vec3 L, double Roughness, double &Fresnel)
+    static double BRDF(const Vector3 N, const Vector3 V, const Vector3 L, double Roughness, double &Fresnel)
     {
-        const vec3 H = (L + V).normalized();
+        const Vector3 H = (L + V).Normalized();
         Roughness = Clamp(Roughness, 1e-2, 1.0);
         const double HdotN = std::max(H | N, 0.0);
         const double VdotN = std::max(V | N, 0.0);
@@ -99,9 +99,9 @@ bool QueryScene(const RRay Ray, std::vector<OObject*>& Scene, RHit& OutHit)
     return bHit;
 }
 
-bool QueryShadow(const RRay Ray, std::vector<OObject*>& Scene, RLight LightSource)
+bool QueryShadow(const RRay Ray, std::vector<OObject*>& Scene, const RLight LightSource)
 {
-    const double Distance = (Ray.Origin - LightSource.Position).getLength();
+    const double Distance = (Ray.Origin - LightSource.Position).Length();
     for (auto* Object : Scene)
     {
         RHit TempHit;
@@ -115,7 +115,7 @@ bool QueryShadow(const RRay Ray, std::vector<OObject*>& Scene, RLight LightSourc
 }
 
 
-vec3 FinalColor(RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lights, const int Depth = 0)
+Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lights, const int Depth = 0)
 {
     if (Depth >= RAY_SAMPLES) return BACKGROUND_COLOR;
 	
@@ -124,42 +124,42 @@ vec3 FinalColor(RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lig
     if (QueryScene(Ray, Scene, HitInfo))
     {   
         const auto M = HitInfo.Mat;
-        vec3 Color(0.0);    
+        Vector3 Color(0.0);    
 
         for (auto const& LightSource : Lights)
         {
-            const vec3 LightDir = (LightSource.Position - HitInfo.Position).normalized();
+            const Vector3 LightDir = (LightSource.Position - HitInfo.Position).Normalized();
             const double NdotL = Clamp(HitInfo.Normal | LightDir, 0.0, 1.0);
 
 #if SHADOW_ENABLED
             RRay ShadowRay;
             ShadowRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
-            ShadowRay.Direction = (LightSource.Position - HitInfo.Position).normalized();
+            ShadowRay.Direction = (LightSource.Position - HitInfo.Position).Normalized();
             if (QueryShadow(ShadowRay, Scene, LightSource)) continue;
 
 #endif
 
 
 
-            const double Distance = (LightSource.Position - HitInfo.Position).getLength();
+            const double Distance = (LightSource.Position - HitInfo.Position).Length();
             const double Attenuation = 1.0 / (Distance * Distance);
-            const vec3 Radiance = LightSource.Color * Attenuation;
+            const Vector3 Radiance = LightSource.Color * Attenuation;
 
             double F = 0.0;
             const double rS = BRDF::BRDF(HitInfo.Normal, -Ray.Direction, LightDir, HitInfo.Mat.Roughness, F);
             const double kS = F;
-            const vec3 kD = (vec3(1.0) - vec3(kS)) / PI * NdotL;
+            const Vector3 kD = (Vector3(1.0) - Vector3(kS)) / PI * NdotL;
 
 #if REFLECTIONS_ENABLED
             RRay ReflectionRay;
             ReflectionRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
             ReflectionRay.Direction = Ray.Direction.MirrorByVector(HitInfo.Normal);
-            const vec3 ReflectedLight = FinalColor(ReflectionRay, Scene, Lights, Depth + 1);
+            const Vector3 ReflectedLight = FinalColor(ReflectionRay, Scene, Lights, Depth + 1);
 #else
-            const vec3 ReflectedLight = 0;
+            const Vector3 ReflectedLight = Vector3(0.0);
 #endif
         	
-            Color = Color + (kD * M.Color * (1.0 - M.Metallic) + vec3(rS)) * Radiance + ReflectedLight * kS;
+            Color = Color + (kD * M.Color * (1.0 - M.Metallic) + Vector3(rS)) * Radiance + ReflectedLight * kS;
 
             
         }
@@ -167,7 +167,7 @@ vec3 FinalColor(RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lig
     	
         return (AMBIENT + Color).Clamp(0.0, 1.0);
         //return HitInfo.Normal.Clamp(0.0, 1.0);
-        //return vec3(HitInfo.Depth / 500.0).Clamp(0.0, 1.0);
+        //return Vector3(HitInfo.Depth / 500.0).Clamp(0.0, 1.0);
     }
     else
     {
@@ -175,12 +175,12 @@ vec3 FinalColor(RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lig
     }
 }
 
-void Render(vec3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLight>& Lights)
+void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLight>& Lights)
 {
     const double AspectRatio = (double)WIDTH / HEIGHT;
 
-    const vec3 CameraPosition(0.0, 0.0, 0.0);
-    //vec3 CameraDirection(1.0, 0.0, 0.0);
+    const Vector3 CameraPosition(0.0, 0.0, 0.0);
+    //Vector3 CameraDirection(1.0, 0.0, 0.0);
 
     #pragma omp parallel for
     for (size_t i = 0; i < HEIGHT; i++)
@@ -196,14 +196,14 @@ void Render(vec3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLight>
 
             RRay Ray;
             Ray.Origin = CameraPosition;
-            Ray.Direction = vec3(PixelCameraX, PixelCameraY, -1.0).normalized();
+            Ray.Direction = Vector3(PixelCameraX, PixelCameraY, -1.0).Normalized();
 
-            vec3 Color = FinalColor(Ray, Scene, Lights);
+            Vector3 Color = FinalColor(Ray, Scene, Lights);
             //Gamma Correction
-            Color = Color / (Color + vec3(1.0));
-            Color.x = std::pow(Color.x, 1.0 / 2.2);
-            Color.y = std::pow(Color.y, 1.0 / 2.2);
-            Color.z = std::pow(Color.z, 1.0 / 2.2);
+            Color = Color / (Color + Vector3(1.0));
+            Color.X = std::pow(Color.X, 1.0 / 2.2);
+            Color.Y = std::pow(Color.Y, 1.0 / 2.2);
+            Color.Z = std::pow(Color.Z, 1.0 / 2.2);
 
             Framebuffer[i * WIDTH + j] = Color;
 
@@ -215,53 +215,66 @@ void Render(vec3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLight>
 
 int main()
 {
-    auto* Frame = new vec3[WIDTH * HEIGHT];
+    auto* Frame = new Vector3[WIDTH * HEIGHT];
 
     std::vector<OObject*> Scene;
     std::vector<RLight> Lights;
 
     auto* S = new OSphere;
-    S->Position = vec3(0.0, 0.0, -30.0);
+    S->Position = Vector3(0.0, 0.0, -30.0);
     S->Radius = 8.0;
     S->Mat = RMaterial::Metal;
     Scene.push_back(S);
 
     auto* S1 = new OSphere;
-    S1->Position = vec3(20.0, 0.0, -30.0);
+    S1->Position = Vector3(20.0, 0.0, -30.0);
     S1->Radius = 8.0;
     S1->Mat = RMaterial::YellowRubber;
     Scene.push_back(S1);
 
     auto* S2 = new OSphere;
-    S2->Position = vec3(-20.0, 0.0, -30.0);
+    S2->Position = Vector3(-20.0, 0.0, -30.0);
     S2->Radius = 8.0;
-    S2->Mat = RMaterial::Metal;
+    S2->Mat = RMaterial::BluePlastic;
     Scene.push_back(S2);
 
-
+    /*
     auto* P = new OPlane;
-    P->Position = vec3(0.0, 30.0, 0.0);
+    P->Position = Vector3(0.0, 30.0, 0.0);
     P->Mat = RMaterial::YellowRubber;
-    P->Normal = vec3(0.0, -1.0, 0.0);
+    P->Normal = Vector3(0.0, -1.0, 0.0);
     Scene.push_back(P);
 
     auto* P1 = new OPlane;
-    P1->Position = vec3(0.0, 0.0, -55.0);
+    P1->Position = Vector3(0.0, 0.0, -55.0);
     P1->Mat = RMaterial::BluePlastic;
-    P1->Normal = vec3(0.0, 0.0, 1.0);
+    P1->Normal = Vector3(0.0, 0.0, 1.0);
     Scene.push_back(P1);
+    */
+
+    auto* B1 = new OBox;
+    B1->Position = Vector3(-25.0, -20.0, -30.0);
+    B1->Mat = RMaterial::BluePlastic;
+    B1->Extent = Vector3(5.0, 5.0, 5.0);
+    Scene.push_back(B1);
+
+    auto* B2 = new OBox;
+    B2->Position = Vector3(0.0, 0.0, 0.0);
+    B2->Mat = RMaterial::Mirror;
+    B2->Extent = Vector3(40.0, 25.0, 40.0);
+    Scene.push_back(B2);
 
     
 
     RLight L;
-    L.Position = vec3(-20.0, -20.0, 0.0);
-    L.Color = vec3(1.0, 1.0, 1.0) * 10950.0;
+    L.Position = Vector3(-20.0, -20.0, 0.0);
+    L.Color = Vector3(1.0, 1.0, 1.0) * 10000.0;
     Lights.push_back(L);
 
     
     RLight L1;
-    L1.Position = vec3(30.0, -20.0, 20.0);
-    L1.Color = vec3(1.0, 1.0, 1.0) * 10950.0;
+    L1.Position = Vector3(30.0, -20.0, 20.0);
+    L1.Color = Vector3(1.0, 1.0, 1.0) * 10000.0;
     Lights.push_back(L1);
     
 

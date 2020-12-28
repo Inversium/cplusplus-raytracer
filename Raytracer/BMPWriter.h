@@ -123,7 +123,7 @@ const unsigned char* make_header(const unsigned int height, const unsigned int w
     return output;
 }
 
-void CreateImage(vec3* framebuffer, const unsigned int height, const unsigned int width, const char* FileName = "output.bmp")
+void CreateImage(Vector3* framebuffer, const unsigned int height, const unsigned int width, const char* FileName = "output.bmp")
 {
     FILE* bmp = nullptr;
     fopen_s(&bmp, FileName, "wb");
@@ -138,9 +138,9 @@ void CreateImage(vec3* framebuffer, const unsigned int height, const unsigned in
 	{
 		for (size_t j = 0; j < width; j++)
 		{
-            unsigned char R = static_cast<unsigned char>(framebuffer[i * width + j].x * 255);
-            unsigned char G = static_cast<unsigned char>(framebuffer[i * width + j].y * 255);
-            unsigned char B = static_cast<unsigned char>(framebuffer[i * width + j].z * 255);
+            unsigned char R = static_cast<unsigned char>(framebuffer[i * width + j].X * 255);
+            unsigned char G = static_cast<unsigned char>(framebuffer[i * width + j].Y * 255);
+            unsigned char B = static_cast<unsigned char>(framebuffer[i * width + j].Z * 255);
 
             fwrite(&B, 1, 1, bmp);
             fwrite(&G, 1, 1, bmp);

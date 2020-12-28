@@ -3,29 +3,29 @@
 
 struct RLight
 {
-	vec3 Position = vec3(0.0, 0.0, 0.0);
-	vec3 Color = vec3(1.0, 1.0, 1.0);
+	Vector3 Position = Vector3(0.0, 0.0, 0.0);
+	Vector3 Color = Vector3(1.0, 1.0, 1.0);
 
 	RLight() = default;
 };
 
 struct RRay
 {
-	vec3 Origin = vec3(0.0, 0.0, 0.0);
-	vec3 Direction = vec3(0.0, 0.0, -1.0);
+	Vector3 Origin = Vector3(0.0, 0.0, 0.0);
+	Vector3 Direction = Vector3(0.0, 0.0, -1.0);
 
 	RRay() = default;
 };
 
 struct RMaterial
 {
-	vec3 Color;
+	Vector3 Color;
 	double Roughness = 0.5;
 	double Metallic = 0.0;
 
 	RMaterial() = default;
 
-	RMaterial(const vec3 InColor, const double InRoughness, const double InMetallic) :
+	RMaterial(const Vector3 InColor, const double InRoughness, const double InMetallic) :
 		Color(InColor),
 		Roughness(InRoughness),
 		Metallic(InMetallic) {}
@@ -34,16 +34,18 @@ struct RMaterial
 	static const RMaterial RedPlastic;
 	static const RMaterial BluePlastic;
 	static const RMaterial YellowRubber;
+	static const RMaterial Mirror;
 };
-const RMaterial RMaterial::Metal = RMaterial(vec3(1.0), 0.25, 1.0);
-const RMaterial RMaterial::RedPlastic = RMaterial(vec3(1.0, 0.0, 0.0), 0.0, 0.0);
-const RMaterial RMaterial::YellowRubber = RMaterial(vec3(1.0, 1.0, 0.0), 1.0, 0.0);
-const RMaterial RMaterial::BluePlastic = RMaterial(vec3(0.1, 0.1, 1.0), 0.0, 0.0);
+const RMaterial RMaterial::Metal = RMaterial(Vector3(1.0), 0.25, 1.0);
+const RMaterial RMaterial::RedPlastic = RMaterial(Vector3(1.0, 0.0, 0.0), 0.0, 0.0);
+const RMaterial RMaterial::YellowRubber = RMaterial(Vector3(1.0, 1.0, 0.0), 1.0, 0.0);
+const RMaterial RMaterial::BluePlastic = RMaterial(Vector3(0.1, 0.1, 1.0), 0.0, 0.0);
+const RMaterial RMaterial::Mirror = RMaterial(Vector3(1.0), 0.0, 1.0);
 
 struct RHit
 {
-	vec3 Position;
-	vec3 Normal;
+	Vector3 Position;
+	Vector3 Normal;
 	RMaterial Mat;
 	double Depth = (double)LLONG_MAX;
 };
@@ -52,9 +54,9 @@ class OObject
 {
 public:
 	RMaterial Mat;
-	vec3 Position;
+	Vector3 Position;
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) { return false; }
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const { return false; }
 };
 
 class OSphere : public OObject
@@ -64,11 +66,11 @@ public:
 
 	OSphere() : Radius(5.) {}
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) override
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
 	{
-		const vec3 L = (Position - Ray.Origin); //Vector from Ray origin to Sphere position
+		const Vector3 L = (Position - Ray.Origin); //Vector from Ray origin to Sphere position
 
-		const double tca = L | Ray.Direction.normalized();
+		const double tca = L | Ray.Direction.Normalized();
 		if (tca < 0) return false;
 
 		const double d2 = (L | L) - tca * tca; //Distance from Sphere position to ray
@@ -85,9 +87,9 @@ public:
 			if (t0 < 0) return false;
 		}
 
-		const vec3 HitPoint = Ray.Origin + Ray.Direction * t0;
+		const Vector3 HitPoint = Ray.Origin + Ray.Direction * t0;
 		OutHit.Mat = this->Mat;
-		OutHit.Normal = (HitPoint - Position).normalized();
+		OutHit.Normal = (HitPoint - Position).Normalized();
 		OutHit.Position = HitPoint;
 		OutHit.Depth = t0;
 
@@ -98,11 +100,11 @@ public:
 class OPlane : public OObject
 {
 public:
-	vec3 Normal;
+	Vector3 Normal;
 
-	OPlane() : Normal(vec3(0.0, 1.0, 0.0)) {}
+	OPlane() : Normal(Vector3(0.0, 1.0, 0.0)) {}
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) override
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
 	{
 		const double Denom = Normal | Ray.Direction;
 		if (abs(Denom) > 1e-10)
@@ -118,5 +120,52 @@ public:
 			}
 		}
 		return false;
+	}
+};
+
+/* Axis Aligned Bounding Box class, it uses the position member as origin and Extent as the actual extent */
+class OBox : public OObject
+{
+public:
+	Vector3 Extent;
+
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
+	{
+		const Vector3 LocalRayOrigin = Ray.Origin - Position;
+		const Vector3 m = Vector3(1.0) / Ray.Direction;
+		const Vector3 n = m * LocalRayOrigin;
+		const Vector3 k = Vector3::Abs(m) * Extent;
+		const Vector3 t1 = -n - k;
+		const Vector3 t2 = -n + k;
+
+		const double tN = t1.GetMax(); //Near point distance
+		const double tF = t2.GetMin(); //Far point distance
+
+		if (tN > tF || tF < 0.0) return false;
+
+		
+		//If the ray origin is inside the box (tN < 0) the actual intersection position will be at (RayDir * tF)
+		//Same goes for Depth
+		const bool bInsideBox = tN < 0.0;
+		OutHit.Position = Position + (bInsideBox ? LocalRayOrigin + Ray.Direction * tF : LocalRayOrigin + Ray.Direction * tN);
+		OutHit.Depth = bInsideBox ? tF : tN;
+
+		OutHit.Mat = Mat;
+		
+		const Vector3 LocalHit = OutHit.Position - Position;
+		OutHit.Normal = {
+			std::trunc(LocalHit.X / Extent.X * (1.0 + 1e-8)),
+			std::trunc(LocalHit.Y / Extent.Y * (1.0 + 1e-8)),
+			std::trunc(LocalHit.Z / Extent.Z * (1.0 + 1e-8))
+		};
+		if (bInsideBox) OutHit.Normal = -OutHit.Normal;
+
+		return true;
+	}
+
+	void SetByMinMax(const Vector3& VMin, const Vector3& VMax)
+	{
+		Position = (VMax + VMin) / 2;
+		Extent = (VMax - VMin) / 2;
 	}
 };
