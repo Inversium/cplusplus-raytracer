@@ -7,9 +7,10 @@
 
 #define SHADOW_ENABLED 1
 #define REFLECTIONS_ENABLED 1
+#define SSAA_ENABLED 1
 
-constexpr uint32_t HEIGHT = 1080;
-constexpr uint32_t WIDTH = 1920;
+constexpr uint32_t HEIGHT = 720;
+constexpr uint32_t WIDTH = 1280;
 constexpr uint8_t FOV = 85;                    //fov in degrees;
 constexpr uint8_t RAY_SAMPLES = 2;
 
@@ -179,6 +180,15 @@ void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLig
 {
     const double AspectRatio = (double)WIDTH / HEIGHT;
 
+#if SSAA_ENABLED
+    double JitterMatrix[4 * 2] = {
+        -1.0 / 4.0,  3.0 / 4.0,
+		3.0 / 4.0,  1.0 / 3.0,
+		-3.0 / 4.0, -1.0 / 4.0,
+		1.0 / 4.0, -3.0 / 4.0
+    };
+#endif
+
     const Vector3 CameraPosition(0.0, 0.0, 0.0);
     //Vector3 CameraDirection(1.0, 0.0, 0.0);
 
@@ -187,8 +197,27 @@ void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLig
     {
         for (size_t j = 0; j < WIDTH; j++)
         {
+#if SSAA_ENABLED
+            Vector3 Color(0.0);
+            for (size_t sample = 0; sample < 4; sample++)
+            {
+                double SSX = 2.0 * (j + JitterMatrix[2 * sample]) / (double)WIDTH - 1;
+                double SSY = 2.0 * (i + JitterMatrix[2 * sample + 1]) / (double)HEIGHT - 1;
+                SSX *= AspectRatio;
+
+                const double PixelCameraX = SSX * tan(FOVR / 2.);
+                const double PixelCameraY = SSY * tan(FOVR / 2.);
+
+                RRay Ray;
+                Ray.Origin = CameraPosition;
+                Ray.Direction = Vector3(PixelCameraX, PixelCameraY, -1.0).Normalized();
+
+                Color = Color + FinalColor(Ray, Scene, Lights);
+            }
+            Color = Color / 4.0;
+#else
             double SSX = 2.0 * (j + 0.5) / (double)WIDTH - 1;  
-            double SSY = 2.0 * (i + 0.5) / (double)HEIGHT - 1; 
+            double SSY = 2.0 * (i + 0.5) / (double)HEIGHT - 1;
             SSX *= AspectRatio;
 
             const double PixelCameraX = SSX * tan(FOVR / 2.);
@@ -199,6 +228,7 @@ void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLig
             Ray.Direction = Vector3(PixelCameraX, PixelCameraY, -1.0).Normalized();
 
             Vector3 Color = FinalColor(Ray, Scene, Lights);
+#endif            
             //Gamma Correction
             Color = Color / (Color + Vector3(1.0));
             Color.X = std::pow(Color.X, 1.0 / 2.2);
