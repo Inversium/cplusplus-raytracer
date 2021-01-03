@@ -22,25 +22,35 @@ struct RMaterial
 	Vector3 Color;
 	double Roughness = 0.5;
 	double Metallic = 0.0;
+	double RefractiveIndex = 1.0;
+	double Transmission = 0.0;
+	Vector3 Emissive;
 
 	RMaterial() = default;
 
-	RMaterial(const Vector3 InColor, const double InRoughness, const double InMetallic) :
+	RMaterial(const Vector3 InColor, const double InRoughness, const double InMetallic, const double InRefractiveIndex, const double InTransmission, const Vector3 InEmissive) :
 		Color(InColor),
 		Roughness(InRoughness),
-		Metallic(InMetallic) {}
+		Metallic(InMetallic),
+		RefractiveIndex(InRefractiveIndex),
+		Transmission(InTransmission),
+		Emissive(InEmissive) {}
 
 	static const RMaterial Metal;
 	static const RMaterial RedPlastic;
 	static const RMaterial BluePlastic;
 	static const RMaterial YellowRubber;
 	static const RMaterial Mirror;
+	static const RMaterial Glass;
+	static const RMaterial Diamond;
 };
-const RMaterial RMaterial::Metal = RMaterial(Vector3(1.0), 0.25, 1.0);
-const RMaterial RMaterial::RedPlastic = RMaterial(Vector3(1.0, 0.0, 0.0), 0.0, 0.0);
-const RMaterial RMaterial::YellowRubber = RMaterial(Vector3(1.0, 1.0, 0.0), 1.0, 0.0);
-const RMaterial RMaterial::BluePlastic = RMaterial(Vector3(0.1, 0.1, 1.0), 0.0, 0.0);
-const RMaterial RMaterial::Mirror = RMaterial(Vector3(1.0), 0.0, 1.0);
+const RMaterial RMaterial::Metal =			RMaterial(Vector3(1.0), 0.25, 1.0, 1.0, 0.0, Vector3(0.0));
+const RMaterial RMaterial::RedPlastic =		RMaterial(Vector3(1.0, 0.0, 0.0), 0.0, 0.0, 1.0, 0.0, Vector3(0.0));
+const RMaterial RMaterial::YellowRubber =	RMaterial(Vector3(1.0, 1.0, 0.0), 1.0, 0.0, 1.0, 0.0, Vector3(0.0));
+const RMaterial RMaterial::BluePlastic =	RMaterial(Vector3(0.1, 0.1, 1.0), 0.0, 0.0, 1.0, 0.0, Vector3(0.0));
+const RMaterial RMaterial::Mirror =			RMaterial(Vector3(1.0), 0.0, 1.0, 1.0, 0.0, Vector3(0.0));
+const RMaterial RMaterial::Glass =			RMaterial(Vector3(1.0), 0.0, 0.0, 1.458, 1.0, Vector3(0.0));
+const RMaterial RMaterial::Diamond =		RMaterial(Vector3(1.0), 0.0, 0.0, 2.417, 1.0, Vector3(0.0));
 
 struct RHit
 {

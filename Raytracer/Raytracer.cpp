@@ -6,17 +6,16 @@
 #include "OObject.h"
 
 #define SHADOW_ENABLED 1
-#define REFLECTIONS_ENABLED 1
-#define SSAA_ENABLED 1
+#define SSAA_ENABLED 0
 
-constexpr uint32_t HEIGHT = 720;
-constexpr uint32_t WIDTH = 1280;
+constexpr uint32_t HEIGHT = 1080;
+constexpr uint32_t WIDTH = 1920;
 constexpr uint8_t FOV = 85;                    //fov in degrees;
-constexpr uint8_t RAY_SAMPLES = 2;
+constexpr uint8_t RAY_SAMPLES = 4;
 
 
 constexpr double FOVR = (FOV * PI / 180);     //fov in radians
-#define BACKGROUND_COLOR Vector3(0.4, 0.2, 0.65)
+#define BACKGROUND_COLOR Vector3(0.0, 0.0, 0.0)
 #define AMBIENT Vector3(0.0, 0.0, 0.0)
 
 template<class T>
@@ -115,6 +114,23 @@ bool QueryShadow(const RRay Ray, std::vector<OObject*>& Scene, const RLight Ligh
     return false;
 }
 
+Vector3 Refract(const Vector3& I, const Vector3& N, const double Index)
+{
+    double cosi = -Clamp(N | I, -1.0, 1.0);
+    double etai = 1.0, etat = Index;
+    Vector3 Normal = N;
+
+	if(cosi < 0.0) //ray inside object
+	{
+        cosi = -cosi;
+        std::swap(etai, etat);
+        Normal = -Normal;
+	}
+    double eta = etai / etat;
+    double k = 1.0 - eta * eta * (1.0 - cosi * cosi);
+    return k < 0.0 ? Vector3(0.0) : I * eta + Normal * (eta * cosi - sqrt(k));
+}
+
 
 Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLight>& Lights, const int Depth = 0)
 {
@@ -134,9 +150,29 @@ Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLi
 
 #if SHADOW_ENABLED
             RRay ShadowRay;
-            ShadowRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
+            ShadowRay.Origin = HitInfo.Position + (NdotL > 0.0 ? HitInfo.Normal * 1e-6 : -HitInfo.Normal * 1e-6);
             ShadowRay.Direction = (LightSource.Position - HitInfo.Position).Normalized();
-            if (QueryShadow(ShadowRay, Scene, LightSource)) continue;
+
+            double ShadowScale = 1.0;
+            RHit ShadowHit;
+            while (QueryScene(ShadowRay, Scene, ShadowHit))
+            {
+                if(ShadowHit.Mat.Transmission > 0.0)
+                {
+                    ShadowScale *= ShadowHit.Mat.Transmission;
+                    ShadowRay.Origin = ShadowHit.Position + ShadowHit.Normal * ((ShadowHit.Normal | LightDir) > 0.0 ? 1e-6 : -1e-6);
+
+                	/* With this line program goes into infinite loop somehow, also I'm not sure whether this is needed */
+                    //ShadowRay.Direction = Refract(ShadowRay.Direction, ShadowHit.Normal, ShadowHit.Mat.RefractiveIndex);
+                }
+                else
+                {
+                    ShadowScale = 0.0;
+                    break;
+                }
+            }
+
+            if (ShadowScale < 1e-8) continue;
 
 #endif
 
@@ -147,33 +183,42 @@ Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLi
             const Vector3 Radiance = LightSource.Color * Attenuation;
 
             double F = 0.0;
-            const double rS = BRDF::BRDF(HitInfo.Normal, -Ray.Direction, LightDir, HitInfo.Mat.Roughness, F);
+            const double rS = BRDF::BRDF(HitInfo.Normal, -Ray.Direction, LightDir, M.Roughness, F);
             const double kS = F;
             const Vector3 kD = (Vector3(1.0) - Vector3(kS)) / PI * NdotL;
 
-#if REFLECTIONS_ENABLED
             RRay ReflectionRay;
-            ReflectionRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
+            ReflectionRay.Origin = HitInfo.Position + (NdotL > 0.0 ? HitInfo.Normal * 1e-6 : -HitInfo.Normal * 1e-6);
             ReflectionRay.Direction = Ray.Direction.MirrorByVector(HitInfo.Normal);
             const Vector3 ReflectedLight = FinalColor(ReflectionRay, Scene, Lights, Depth + 1);
-#else
-            const Vector3 ReflectedLight = Vector3(0.0);
-#endif
-        	
-            Color = Color + (kD * M.Color * (1.0 - M.Metallic) + Vector3(rS)) * Radiance + ReflectedLight * kS;
 
-            
+            Vector3 TransmittedLight;
+            if (M.Transmission > 0.0)
+            {
+                RRay TransmittedRay;
+                TransmittedRay.Origin = HitInfo.Position + HitInfo.Normal * -1e-6;
+                TransmittedRay.Direction = Refract(Ray.Direction, HitInfo.Normal, M.RefractiveIndex);
+                TransmittedLight = FinalColor(TransmittedRay, Scene, Lights, Depth + 1);
+            }
+            else
+            {
+                TransmittedLight = Vector3(0.0);
+            }
+
+
+            Color = Color + (kD * M.Color * (1.0 - M.Metallic) * (1.0 - M.Transmission) + Vector3(rS)) * Radiance; //Base light
+            Color = Color + ReflectedLight * kS; // Reflected light
+            Color = Color + TransmittedLight * M.Transmission; // Transmitted light
+            Color = Color * ShadowScale;
         }
 
     	
-        return (AMBIENT + Color).Clamp(0.0, 1.0);
+        return (AMBIENT + Color + M.Emissive).Clamp(0.0, 1.0);
         //return HitInfo.Normal.Clamp(0.0, 1.0);
         //return Vector3(HitInfo.Depth / 500.0).Clamp(0.0, 1.0);
     }
-    else
-    {
-        return BACKGROUND_COLOR;
-    }
+
+    return BACKGROUND_COLOR;   
 }
 
 void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLight>& Lights)
@@ -205,8 +250,8 @@ void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLig
                 double SSY = 2.0 * (i + JitterMatrix[2 * sample + 1]) / (double)HEIGHT - 1;
                 SSX *= AspectRatio;
 
-                const double PixelCameraX = SSX * tan(FOVR / 2.);
-                const double PixelCameraY = SSY * tan(FOVR / 2.);
+                const double PixelCameraX = SSX * tan(FOVR / 2.0);
+                const double PixelCameraY = SSY * tan(FOVR / 2.0);
 
                 RRay Ray;
                 Ray.Origin = CameraPosition;
@@ -220,15 +265,16 @@ void Render(Vector3* Framebuffer, std::vector<OObject*> &Scene, std::vector<RLig
             double SSY = 2.0 * (i + 0.5) / (double)HEIGHT - 1;
             SSX *= AspectRatio;
 
-            const double PixelCameraX = SSX * tan(FOVR / 2.);
-            const double PixelCameraY = SSY * tan(FOVR / 2.);
+            const double PixelCameraX = SSX * tan(FOVR / 2.0);
+            const double PixelCameraY = SSY * tan(FOVR / 2.0);
 
             RRay Ray;
             Ray.Origin = CameraPosition;
             Ray.Direction = Vector3(PixelCameraX, PixelCameraY, -1.0).Normalized();
 
             Vector3 Color = FinalColor(Ray, Scene, Lights);
-#endif            
+#endif
+        	
             //Gamma Correction
             Color = Color / (Color + Vector3(1.0));
             Color.X = std::pow(Color.X, 1.0 / 2.2);
@@ -253,28 +299,29 @@ int main()
     auto* S = new OSphere;
     S->Position = Vector3(0.0, 0.0, -30.0);
     S->Radius = 8.0;
-    S->Mat = RMaterial::Metal;
+    S->Mat = RMaterial::YellowRubber;
     Scene.push_back(S);
 
     auto* S1 = new OSphere;
     S1->Position = Vector3(20.0, 0.0, -30.0);
     S1->Radius = 8.0;
-    S1->Mat = RMaterial::YellowRubber;
+    S1->Mat = RMaterial::BluePlastic;
     Scene.push_back(S1);
 
     auto* S2 = new OSphere;
-    S2->Position = Vector3(-20.0, 0.0, -30.0);
-    S2->Radius = 8.0;
-    S2->Mat = RMaterial::BluePlastic;
+    S2->Position = Vector3(-2.0, -1.0, -11.0);
+    S2->Radius = 2.3;
+    S2->Mat = RMaterial::Glass;
     Scene.push_back(S2);
 
-    /*
+    
     auto* P = new OPlane;
     P->Position = Vector3(0.0, 30.0, 0.0);
-    P->Mat = RMaterial::YellowRubber;
+    P->Mat = RMaterial::RedPlastic;
     P->Normal = Vector3(0.0, -1.0, 0.0);
     Scene.push_back(P);
 
+	/*
     auto* P1 = new OPlane;
     P1->Position = Vector3(0.0, 0.0, -55.0);
     P1->Mat = RMaterial::BluePlastic;
@@ -288,12 +335,13 @@ int main()
     B1->Extent = Vector3(5.0, 5.0, 5.0);
     Scene.push_back(B1);
 
+    /*
     auto* B2 = new OBox;
     B2->Position = Vector3(0.0, 0.0, 0.0);
-    B2->Mat = RMaterial::Mirror;
+    B2->Mat = RMaterial::BluePlastic;
     B2->Extent = Vector3(40.0, 25.0, 40.0);
     Scene.push_back(B2);
-
+    */
     
 
     RLight L;
