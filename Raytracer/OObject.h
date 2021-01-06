@@ -5,6 +5,7 @@ struct RLight
 {
 	Vector3 Position = Vector3(0.0, 0.0, 0.0);
 	Vector3 Color = Vector3(1.0, 1.0, 1.0);
+	double SourceRadius = 5.0;
 
 	RLight() = default;
 };
@@ -74,7 +75,7 @@ class OSphere : public OObject
 public:
 	double Radius;
 
-	OSphere() : Radius(5.) {}
+	OSphere() : Radius(5.0) {}
 
 	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override
 	{
@@ -91,15 +92,17 @@ public:
 		double t0 = tca - HalfInner;
 		double t1 = tca + HalfInner;	
 
+		bool bInside = false;
 		if (t0 < 0)
 		{
+			bInside = true;
 			t0 = t1;
 			if (t0 < 0) return false;
 		}
 
 		const Vector3 HitPoint = Ray.Origin + Ray.Direction * t0;
 		OutHit.Mat = this->Mat;
-		OutHit.Normal = (HitPoint - Position).Normalized();
+		OutHit.Normal = bInside ? -(HitPoint - Position).Normalized() : (HitPoint - Position).Normalized();
 		OutHit.Position = HitPoint;
 		OutHit.Depth = t0;
 

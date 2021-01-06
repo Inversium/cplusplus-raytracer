@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <vector>
 #include <cmath>
+#include <random>
 #include "math/Headers/mvector.h"
 #include "BMPWriter.h"
 #include "OObject.h"
@@ -8,20 +9,49 @@
 #define SHADOW_ENABLED 1
 #define SSAA_ENABLED 0
 
-constexpr uint32_t HEIGHT = 1080;
-constexpr uint32_t WIDTH = 1920;
+constexpr uint32_t HEIGHT = 720;
+constexpr uint32_t WIDTH = 1280;
 constexpr uint8_t FOV = 85;                    //fov in degrees;
-constexpr uint8_t RAY_SAMPLES = 4;
+constexpr uint8_t RAY_SAMPLES = 3;
+constexpr uint16_t SHADOW_SAMPLES = 4;
 
 
 constexpr double FOVR = (FOV * PI / 180);     //fov in radians
 #define BACKGROUND_COLOR Vector3(0.0, 0.0, 0.0)
-#define AMBIENT Vector3(0.0, 0.0, 0.0)
+#define AMBIENT Vector3(0.01, 0.01, 0.01)
 
 template<class T>
 constexpr T Clamp(T X, T Low, T High)
 {
     return std::min(std::max(X, Low), High);
+}
+
+
+double RandomD(const double Min = 0.0, const double Max = 1.0)
+{
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+	static std::uniform_real_distribution<> R(0.0, 1.0);
+
+    const double X = R(gen);
+    return Min + X * (Max - Min);
+}
+
+double GetConeAngleByFittingSphere(const double SphereRadius, const double Distance)
+{
+    return std::asin(SphereRadius / Distance);
+}
+
+Vector3 GetRandomUnitVectorInsideCone(const Vector3& ConeDir, const double ConeAngle)
+{
+    const Vector3 U = ConeDir.MinAxis();
+    const Vector3 V = U ^ ConeDir;
+	
+    const double Phi = RandomD(-PI, PI);
+    const double Theta = RandomD(0.0, ConeAngle);
+
+    const Vector3 Result = std::sin(Theta) * (std::cos(Phi) * U + std::sin(Phi) * V) + std::cos(Theta) * ConeDir;
+    return Result.Normalized();
 }
 
 
@@ -99,28 +129,13 @@ bool QueryScene(const RRay Ray, std::vector<OObject*>& Scene, RHit& OutHit)
     return bHit;
 }
 
-bool QueryShadow(const RRay Ray, std::vector<OObject*>& Scene, const RLight LightSource)
-{
-    const double Distance = (Ray.Origin - LightSource.Position).Length();
-    for (auto* Object : Scene)
-    {
-        RHit TempHit;
-        if (Object->Intersects(Ray, TempHit))
-        {
-        	if(Distance > TempHit.Depth) 
-                return true;
-        }
-    }
-    return false;
-}
-
 Vector3 Refract(const Vector3& I, const Vector3& N, const double Index)
 {
     double cosi = -Clamp(N | I, -1.0, 1.0);
     double etai = 1.0, etat = Index;
     Vector3 Normal = N;
 
-	if(cosi < 0.0) //ray inside object
+	if(cosi < 0.0) /* Ray is inside the object */
 	{
         cosi = -cosi;
         std::swap(etai, etat);
@@ -137,45 +152,73 @@ Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLi
     if (Depth >= RAY_SAMPLES) return BACKGROUND_COLOR;
 	
     RHit HitInfo;
-    
+
+	/* If any object is hit by ray*/
     if (QueryScene(Ray, Scene, HitInfo))
     {   
         const auto M = HitInfo.Mat;
         Vector3 Color(0.0);    
-
+    	
+    	/* Loop over each Light Source */
         for (auto const& LightSource : Lights)
         {
             const Vector3 LightDir = (LightSource.Position - HitInfo.Position).Normalized();
-            const double NdotL = Clamp(HitInfo.Normal | LightDir, 0.0, 1.0);
 
-#if SHADOW_ENABLED
-            RRay ShadowRay;
-            ShadowRay.Origin = HitInfo.Position + (NdotL > 0.0 ? HitInfo.Normal * 1e-6 : -HitInfo.Normal * 1e-6);
-            ShadowRay.Direction = (LightSource.Position - HitInfo.Position).Normalized();
-
-            double ShadowScale = 1.0;
-            RHit ShadowHit;
-            while (QueryScene(ShadowRay, Scene, ShadowHit))
+            const double ConeAngle = GetConeAngleByFittingSphere(LightSource.SourceRadius,
+														  (LightSource.Position - HitInfo.Position).Length());
+            double SampleSum = 0.0;
+        	
+            /* Collect samples for soft shadows */
+            for (size_t Sample = 0; Sample < SHADOW_SAMPLES; Sample++)
             {
-                if(ShadowHit.Mat.Transmission > 0.0)
-                {
-                    ShadowScale *= ShadowHit.Mat.Transmission;
-                    ShadowRay.Origin = ShadowHit.Position + ShadowHit.Normal * ((ShadowHit.Normal | LightDir) > 0.0 ? 1e-6 : -1e-6);
+                RRay ShadowRay;
+                ShadowRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
+                ShadowRay.Direction = GetRandomUnitVectorInsideCone(LightDir, ConeAngle);
 
-                	/* With this line program goes into infinite loop somehow, also I'm not sure whether this is needed */
-                    //ShadowRay.Direction = Refract(ShadowRay.Direction, ShadowHit.Normal, ShadowHit.Mat.RefractiveIndex);
-                }
-                else
+                /*
+                 * We don't want full shadows from transparent objects,
+                 * so loop if the shadow ray hit object with transmission > 0.0
+                 */
+                double LightingScale = 1.0;
+                RHit ShadowHit;
+                while (QueryScene(ShadowRay, Scene, ShadowHit))
                 {
-                    ShadowScale = 0.0;
-                    break;
+                	/* TODO Do the intersection with light sphere cleaner, not by creating a corresponding OSphere */                   
+                	
+                    OSphere LightSphere;
+                    LightSphere.Radius = LightSource.SourceRadius;
+                    LightSphere.Position = LightSource.Position;
+                    
+                    RHit TempHit;
+                    LightSphere.Intersects(ShadowRay, TempHit);
+
+                	/* There's shadow only when the intersection point lies before LightSource */
+                    if (ShadowHit.Depth < TempHit.Depth)
+                    {
+                        if (ShadowHit.Mat.Transmission > 0.0)
+                        {
+                            /* Avoid self-intersection */
+                            const double Dot = ShadowHit.Normal | ShadowRay.Direction;
+                            ShadowRay.Origin = ShadowHit.Position + ShadowHit.Normal * (Dot < 0.0 ? -1e-6 : 1e-6);
+
+                            LightingScale *= ShadowHit.Mat.Transmission;
+                        }
+                        else
+                        {
+                            LightingScale = 0.0;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
+
+                SampleSum += std::sqrt(LightingScale) * Clamp(HitInfo.Normal | ShadowRay.Direction, 0.0, 1.0);
             }
 
-            if (ShadowScale < 1e-8) continue;
-
-#endif
-
+            double LightAmount = SampleSum / SHADOW_SAMPLES;
 
 
             const double Distance = (LightSource.Position - HitInfo.Position).Length();
@@ -185,10 +228,10 @@ Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLi
             double F = 0.0;
             const double rS = BRDF::BRDF(HitInfo.Normal, -Ray.Direction, LightDir, M.Roughness, F);
             const double kS = F;
-            const Vector3 kD = (Vector3(1.0) - Vector3(kS)) / PI * NdotL;
+            const Vector3 kD = (Vector3(1.0) - Vector3(kS)) / PI * LightAmount;
 
             RRay ReflectionRay;
-            ReflectionRay.Origin = HitInfo.Position + (NdotL > 0.0 ? HitInfo.Normal * 1e-6 : -HitInfo.Normal * 1e-6);
+            ReflectionRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
             ReflectionRay.Direction = Ray.Direction.MirrorByVector(HitInfo.Normal);
             const Vector3 ReflectedLight = FinalColor(ReflectionRay, Scene, Lights, Depth + 1);
 
@@ -209,11 +252,10 @@ Vector3 FinalColor(const RRay Ray, std::vector<OObject*>& Scene, std::vector<RLi
             Color = Color + (kD * M.Color * (1.0 - M.Metallic) * (1.0 - M.Transmission) + Vector3(rS)) * Radiance; //Base light
             Color = Color + ReflectedLight * kS; // Reflected light
             Color = Color + TransmittedLight * M.Transmission; // Transmitted light
-            Color = Color * ShadowScale;
+            Color = Color * (Vector3(1.0) + AMBIENT);
         }
-
     	
-        return (AMBIENT + Color + M.Emissive).Clamp(0.0, 1.0);
+        return (Color + M.Emissive).Clamp(0.0, 1.0);
         //return HitInfo.Normal.Clamp(0.0, 1.0);
         //return Vector3(HitInfo.Depth / 500.0).Clamp(0.0, 1.0);
     }
@@ -297,7 +339,7 @@ int main()
     std::vector<RLight> Lights;
 
     auto* S = new OSphere;
-    S->Position = Vector3(0.0, 0.0, -30.0);
+    S->Position = Vector3(0.0, 5.0, -30.0);
     S->Radius = 8.0;
     S->Mat = RMaterial::YellowRubber;
     Scene.push_back(S);
@@ -309,50 +351,53 @@ int main()
     Scene.push_back(S1);
 
     auto* S2 = new OSphere;
-    S2->Position = Vector3(-2.0, -1.0, -11.0);
+    S2->Position = Vector3(-5.0, 3.0, -7.0);
     S2->Radius = 2.3;
     S2->Mat = RMaterial::Glass;
-    Scene.push_back(S2);
+    //Scene.push_back(S2);
 
     
     auto* P = new OPlane;
     P->Position = Vector3(0.0, 30.0, 0.0);
     P->Mat = RMaterial::RedPlastic;
     P->Normal = Vector3(0.0, -1.0, 0.0);
-    Scene.push_back(P);
+    //Scene.push_back(P);
 
-	/*
+	
     auto* P1 = new OPlane;
-    P1->Position = Vector3(0.0, 0.0, -55.0);
+    P1->Position = Vector3(0.0, 0.0, 1000.0);
     P1->Mat = RMaterial::BluePlastic;
-    P1->Normal = Vector3(0.0, 0.0, 1.0);
-    Scene.push_back(P1);
-    */
+    P1->Normal = Vector3(0.0, 0.0, -1.0);
+    //Scene.push_back(P1);
+    
 
     auto* B1 = new OBox;
-    B1->Position = Vector3(-25.0, -20.0, -30.0);
-    B1->Mat = RMaterial::BluePlastic;
-    B1->Extent = Vector3(5.0, 5.0, 5.0);
+    B1->Position = Vector3(-7.0, 3.0, -22.0);
+    B1->Mat = RMaterial::Glass;
+    B1->Mat.Transmission = 0.5;
+    B1->Extent = Vector3(5.0, 8.0, 5.0);
     Scene.push_back(B1);
 
-    /*
+    
     auto* B2 = new OBox;
     B2->Position = Vector3(0.0, 0.0, 0.0);
     B2->Mat = RMaterial::BluePlastic;
-    B2->Extent = Vector3(40.0, 25.0, 40.0);
+    B2->Extent = Vector3(60.0, 30.0, 45.0);
     Scene.push_back(B2);
-    */
+    
     
 
     RLight L;
     L.Position = Vector3(-20.0, -20.0, 0.0);
-    L.Color = Vector3(1.0, 1.0, 1.0) * 10000.0;
+    L.Color = Vector3(1.0, 1.0, 1.0) * 6000.0;
+    L.SourceRadius = 5.0;
     Lights.push_back(L);
 
     
     RLight L1;
     L1.Position = Vector3(30.0, -20.0, 20.0);
-    L1.Color = Vector3(1.0, 1.0, 1.0) * 10000.0;
+    L1.Color = Vector3(1.0, 1.0, 1.0) * 7000.0;
+    L1.SourceRadius = 5.0;
     Lights.push_back(L1);
     
 

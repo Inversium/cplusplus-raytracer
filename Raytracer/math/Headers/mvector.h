@@ -50,6 +50,7 @@ struct Vector2
 	double GetMin() const;
 
 	Vector2 MaxAxis() const;
+	Vector2 MinAxis() const;
 
 	/*Get a copy with sign components*/
 	Vector2 Sign() const;
@@ -115,11 +116,7 @@ struct Vector3
 
 	//return true if vector length == 1
 	bool IsNormalized() const;
-
-	static double Angle(Vector3& v1, Vector3& v2);
-
-	static Vector3 CrossProduct(Vector3& v1, Vector3& v2);
-
+	
 	/*
 	  mirror vector by an input normal
 	  input normal is automatically Normalized
@@ -130,6 +127,7 @@ struct Vector3
 	double GetMin() const;
 
 	Vector3 MaxAxis() const;
+	Vector3 MinAxis() const;
 
 	/*Get a copy with sign components*/
 	Vector3 Sign() const;
@@ -300,6 +298,33 @@ inline Vector2 Vector2::MaxAxis() const
 {
 	const Vector2 AbsVector = Vector2::Abs(*this);
 	if(AbsVector.X > AbsVector.Y)
+	{
+		return Vector2::I;
+	}
+	else
+	{
+		return Vector2::J;
+	}
+}
+
+inline Vector3 Vector3::MinAxis() const
+{
+	int MinInd = 0;
+	const Vector3 AbsVector = Vector3::Abs(*this);
+	if (AbsVector.Y < AbsVector.X) MinInd = 1;
+	if (AbsVector.Z < AbsVector[MinInd]) MinInd = 2;
+	switch (MinInd)
+	{
+	case 0: return X < 0 ? Vector3::I : -Vector3::I;
+	case 1: return Y < 0 ? Vector3::J : -Vector3::J;
+	case 2: return Z < 0 ? Vector3::K : -Vector3::K;
+	default: return { 0.0, 0.0, 0.0 }; //Will never be executed, though
+	}
+}
+inline Vector2 Vector2::MinAxis() const
+{
+	const Vector2 AbsVector = Vector2::Abs(*this);
+	if (AbsVector.X < AbsVector.Y)
 	{
 		return Vector2::I;
 	}
