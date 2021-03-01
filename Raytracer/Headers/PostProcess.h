@@ -4,7 +4,7 @@
 
 #include "Scene.h"
 #include <execution>
-#include "math/mvector.h"
+#include "math/Vector.h"
 
 inline double Gaussian(const double X, const double Sigma = 1.0)
 {
@@ -17,20 +17,19 @@ inline double Luminance(const Vector3& Color)
 	return Vector3(0.3, 0.59, 0.11) | Color;
 }
 
-inline void GaussianBlur(Texture3D& Texture, const double Sigma)
+inline void GaussianBlur(RTexture<Vector3>& Texture, const double Sigma)
 {
 	const uint32_t TextureSize = Texture.GetHeight() * Texture.GetWidth();
 	const int32_t Radius = 2 * static_cast<int32_t>(std::ceil(Sigma * 3)) + 1;
 	const uint8_t Height = Texture.GetHeight();
 	const uint8_t Width = Texture.GetWidth();
-	Texture3D InitialTexture = Texture;
+	RTexture<Vector3> InitialTexture = Texture;
 
-	DrawTask("Blurring");
 
 	/* First pass of blurring - Horizontal */	
 	#pragma omp parallel for
-	for (uint32_t X = 0; X < Texture.GetWidth(); X++)
-		for (uint32_t Y = 0; Y < Texture.GetHeight(); Y++) 
+	for (int32_t X = 0; X < Texture.GetWidth(); X++)
+		for (int32_t Y = 0; Y < Texture.GetHeight(); Y++) 
 		{
 			double KernelSum = 0.0;
 			Vector3 Color(0.0);
@@ -51,8 +50,8 @@ inline void GaussianBlur(Texture3D& Texture, const double Sigma)
 
 	/* Second pass of blurring - Vertical */
 	#pragma omp parallel for
-	for (uint32_t X = 0; X < Texture.GetWidth(); X++)
-		for (uint32_t Y = 0; Y < Texture.GetHeight(); Y++)
+	for (int32_t X = 0; X < Texture.GetWidth(); X++)
+		for (int32_t Y = 0; Y < Texture.GetHeight(); Y++)
 		{
 			double KernelSum = 0.0;
 			Vector3 Color(0.0);
@@ -70,20 +69,18 @@ inline void GaussianBlur(Texture3D& Texture, const double Sigma)
 }
 
 
-inline void Bloom(Texture3D& Texture, const double LuminanceThreshold = 3.0, const double Sigma = 3.0)
+inline void Bloom(RTexture<Vector3>& Texture, const double LuminanceThreshold = 3.0, const double Sigma = 3.0)
 {
-	DrawTask("Bloom");
-
 	auto BrightFilter = [LuminanceThreshold](const Vector3& Color)
 	{
 		if (Luminance(Color) > LuminanceThreshold) return Color;
 		else return Vector3(0.0);
 	};
 
-	Texture3D ExtractedBloom(Texture.GetHeight(), Texture.GetWidth());
-	#pragma omp parallel for
-	for (size_t i = 0; i < Texture.GetHeight(); i++)
-		for (size_t j = 0; j < Texture.GetWidth(); j++)
+	RTexture<Vector3> ExtractedBloom(Texture.GetHeight(), Texture.GetWidth());
+	#pragma omp parallel for collapse(2)
+	for (int32_t i = 0; i < Texture.GetHeight(); i++)
+		for (int32_t j = 0; j < Texture.GetWidth(); j++)
 		{
 			const Vector3 Value = BrightFilter(Texture.Get(j, i));
 			ExtractedBloom.Write(Value, j, i);
@@ -91,15 +88,14 @@ inline void Bloom(Texture3D& Texture, const double LuminanceThreshold = 3.0, con
 
 	GaussianBlur(ExtractedBloom, Sigma);
 
-	#pragma omp parallel for
-	for (size_t i = 0; i < Texture.GetHeight(); i++)
-		for (size_t j = 0; j < Texture.GetWidth(); j++)
+	#pragma omp parallel for collapse(2)
+	for (int32_t i = 0; i < Texture.GetHeight(); i++)
+		for (int32_t j = 0; j < Texture.GetWidth(); j++)
 			Texture.Write(Texture.Get(j, i) + ExtractedBloom.Get(j, i), j, i);
 }
 
-inline void GammaCorrection(Texture3D& Texture, const double Gamma = 2.2)
+inline void GammaCorrection(RTexture<Vector3>& Texture, const double Gamma = 2.2)
 {	
-	DrawTask("Gamma Correction");
 	std::transform(std::execution::par, Texture.Begin(), Texture.End(), Texture.Begin(), 
 		[Gamma](const Vector3& Color)
 		{
@@ -111,9 +107,8 @@ inline void GammaCorrection(Texture3D& Texture, const double Gamma = 2.2)
 		});
 }
 
-inline void ToneCompression(Texture3D& Texture, const double Exposure = 1.0)
+inline void ToneCompression(RTexture<Vector3>& Texture, const double Exposure = 1.0)
 {
-	DrawTask("Tone Compression");
 	std::transform(std::execution::par, Texture.Begin(), Texture.End(), Texture.Begin(),
 		[Exposure](const Vector3& Color)
 		{
@@ -123,4 +118,25 @@ inline void ToneCompression(Texture3D& Texture, const double Exposure = 1.0)
 				1.0 - std::exp(-Color.Z * Exposure)
 			);
 		});
+}
+
+inline void Sharpen(RTexture<Vector3>& Texture, const double Sharpness = 1.0)
+{
+	auto const InitialTexture(Texture);
+
+	#pragma omp parallel for collapse(2)
+	for(int32_t Y = 0; Y < Texture.GetHeight(); Y++)
+		for (int32_t X = 0; X < Texture.GetWidth(); X++)
+		{
+			const Vector3 Sample = InitialTexture.Get(X, Y);
+			auto Diffs = {
+				Sample - InitialTexture.Get(X + 1, Y),
+				Sample - InitialTexture.Get(X - 1, Y),
+				Sample - InitialTexture.Get(X, Y + 1),
+				Sample - InitialTexture.Get(X, Y - 1)
+			};
+			const Vector3 MaxDiff = *std::max_element(Diffs.begin(), Diffs.end());
+			const Vector3 NewValue = Sample + Sharpness * MaxDiff;
+			Texture.Write(NewValue, X, Y);			
+		}
 }

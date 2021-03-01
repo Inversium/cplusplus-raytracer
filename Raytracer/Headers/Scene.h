@@ -2,67 +2,20 @@
 #include <cassert>
 #include <cstdint>
 #include <vector>
+#include <set>
 
-//#include "CoreUtilities.h"
-#include "math/mvector.h"
+#include "Core.h"
+#include "Texture.h"
 
 class OLight;
-struct RHit;
-struct RRay;
 class OObject;
+class ShadingModel;
 
-struct Texture1D
-{
-	Texture1D(const uint32_t InHeight, const uint32_t InWidth) : Height(InHeight), Width(InWidth)
-	{
-		Texture.resize(Height * Width);
-	}
-	
 
-private:
-	std::vector<double> Texture;
-	uint32_t Height;
-	uint32_t Width;
-
-public:
-	uint32_t GetHeight() const { return Height; }
-	uint32_t GetWidth() const { return Width; }
-	double Get(const uint32_t X, const uint32_t Y) const;
-	double GetByUV(const Vector2 UV, bool UseBilinear = false) const;
-	void Write(const double Value, const uint32_t X, const uint32_t Y);
-	void WriteByUV(const double Value, const Vector2 UV);
-	std::vector<double>::iterator Begin() { return Texture.begin(); }
-	std::vector<double>::iterator End() { return Texture.end(); }
-};
-struct Texture3D
-{
-	Texture3D(const uint32_t InHeight, const uint32_t InWidth) : Height(InHeight), Width(InWidth)
-	{
-		Texture.resize(Height * Width);
-	}
-	
-
-private:
-	std::vector<Vector3> Texture;
-	uint32_t Height;
-	uint32_t Width;
-
-public:
-	uint32_t GetHeight() const { return Height; }
-	uint32_t GetWidth() const { return Width; }
-	Vector3 Get(const uint32_t X, const uint32_t Y) const;
-	Vector3 GetByUV(const Vector2 UV, bool UseBilinear = false) const;
-	void Write(const Vector3& Value, const uint32_t X, const uint32_t Y);
-	void WriteByUV(const Vector3& Value, const Vector2 UV);
-	std::vector<Vector3>::iterator Begin() { return Texture.begin(); }
-	std::vector<Vector3>::iterator End() { return Texture.end(); }
-	void Resize(uint16_t NewHeight, uint16_t NewWidth, bool UseBilinear = false);
-};
-
-class Scene
+class RScene
 {
 public:
-	Scene(const uint16_t InHeight, const uint16_t InWidth);
+	RScene(const uint16_t InHeight, const uint16_t InWidth);
 
 	enum class SceneType1D : uint8_t
 	{
@@ -82,6 +35,9 @@ public:
 
 	struct PixelInfo
 	{
+		PixelInfo() {};
+		PixelInfo(const Vector3& HDRColor) : ColorHDR(HDRColor) {}
+
 		double Depth = 0.0;
 		double Transmission = 0.0;
 		double Metallic = 0.0;
@@ -121,6 +77,7 @@ public:
 	};
 
 	bool bSSAA;
+	bool bShadows;
 	uint8_t RayDepth;
 	uint16_t ShadowSamples;
 	Vector3 BackgroundColor;
@@ -133,55 +90,85 @@ public:
 private:	
 	
 	/* HDR output of the scene render */
-	Texture3D* SceneTexture = nullptr;
+	RTexture<Vector3>* SceneTexture = nullptr;
 
 	/* Depth Render of the Scene */
-	Texture1D* DepthTexture = nullptr;
+	RTexture<double>* DepthTexture = nullptr;
 
 	/* Roughness Render of the Scene */
-	Texture1D* RoughnessTexture = nullptr;
+	RTexture<double>* RoughnessTexture = nullptr;
 
 	/* Transmission Render of the Scene */
-	Texture1D* TransmissionTexture = nullptr;
+	RTexture<double>* TransmissionTexture = nullptr;
 
 	/* Metallic Render of the Scene */
-	Texture1D* MetallicTexture = nullptr;
+	RTexture<double>* MetallicTexture = nullptr;
 
 	/* Normal render of the scene */
-	Texture3D* NormalTexture = nullptr;
+	RTexture<Vector3>* NormalTexture = nullptr;
 
 	/* Emissive only render of the scene */
-	Texture3D* EmissiveTexture = nullptr;
+	RTexture<Vector3>* EmissiveTexture = nullptr;
 
 	/* Base Color only render of the scene */
-	Texture3D* BaseColorTexture = nullptr;
+	RTexture<Vector3>* BaseColorTexture = nullptr;
 
 	/* Container with all scene objects */
-	std::vector<OObject*> SceneObjects;
+	std::set<OObject*> SceneObjects;
 
-	/* Container with all scene objects */
-	std::vector<OLight*> SceneLights;
+	/* Container with all scene lights */
+	std::set<OLight*> SceneLights;
+
+	RTexture<Vector3>* EnvironmentTexture = nullptr;
+
+	ShadingModel* Shader = nullptr;
+
 
 public:
 
 	double GetPixel1D(uint16_t X, uint16_t Y, const SceneType1D Type) const;
 	Vector3 GetPixel3D(uint16_t X, uint16_t Y, const SceneType3D Type) const;
 
-	void GetTexture1D(const SceneType1D Type, Texture1D& OutTexture) const;
-	Texture1D GetTexture1D(const SceneType1D Type) const;
+	void GetTexture1D(const SceneType1D Type, RTexture<double>& OutTexture) const;
+	RTexture<double> GetTexture1D(const SceneType1D Type) const;
 	
-	void GetTexture3D(const SceneType3D Type, Texture3D& OutTexture) const;
-	Texture3D GetTexture3D(const SceneType3D Type) const;
+	void GetTexture3D(const SceneType3D Type, RTexture<Vector3>& OutTexture) const;
+	RTexture<Vector3> GetTexture3D(const SceneType3D Type) const;
 
 	void AddObject(OObject* Object);
 	
 	void Render();
 
+	void SetEnvironmentTexture(const RTexture<Vector3>& Texture);
+
+	bool QueryScene(const RRay& Ray, RHit& OutHit) const;
+
+	void SetShader(ShadingModel* InShader);
+
 private:
 
+	Vector3 SampleEnvMap(const Vector3& Direction) const;
 	void ExtractLightSources();
-	bool QueryScene(const RRay& Ray, RHit& OutHit) const;
+	
 	PixelInfo TraceRay(const RRay& Ray) const;
 	Vector3 TraceRay(const RRay& Ray, const uint8_t Depth) const;
+
 };
 
+struct RLightInfo
+{
+	RHit Hit;
+	Vector3 View;
+private:
+	OLight* Light = nullptr;
+
+public:
+	RLightInfo(const RHit& InHit, const Vector3& InView, OLight* InLight) : Hit(InHit), View(InView), Light(InLight) {}
+
+public:
+	Vector3 GetLightVector() const;
+
+	Vector3 GetLightPosition() const;
+
+	Vector3 GetLightColor() const;
+};

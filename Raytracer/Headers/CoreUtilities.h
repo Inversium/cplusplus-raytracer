@@ -3,8 +3,41 @@
 #include <random>
 #include <vector>
 
+
 #include "Scene.h"
-#include "math/mvector.h"
+#include "math/Vector.h"
+#include "Texture.h"
+
+enum class LogType : uint8_t
+{
+    LOG,
+    WARNING,
+    ERROR
+};
+
+
+template<typename... Args>
+inline void LOG(const char* Context, LogType Type, const char* Message, Args... args)
+{
+    std::string MessageType = "[]";
+    switch (Type)
+    {
+    case LogType::LOG:
+        MessageType.insert(1, "LOG");
+        break;
+    case LogType::WARNING:
+        MessageType.insert(1, "WARNING");
+        break;
+    case LogType::ERROR:
+        MessageType.insert(1, "ERROR");
+        break;
+    }
+    char Buffer[300];
+    std::sprintf(Buffer, (MessageType + "[" + std::string(Context) + "]\t" + std::string(Message)).c_str(), args...);
+    std::cout << Buffer << std::endl;
+} 
+
+
 
 
 enum class EColorChannels : uint8_t
@@ -74,39 +107,41 @@ inline Vector3 GetRandomUnitVectorInsideCone(const Vector3& ConeDir, const doubl
 
 inline Vector3 Refract(const Vector3& I, const Vector3& N, const double Index)
 {
-    double cosi = -Clamp(N | I, -1.0, 1.0);
-    double etai = 1.0, etat = Index;
+    double cosI = -Clamp(N | I, -1.0, 1.0);
+    double etaI = 1.0, etaT = Index;
     Vector3 Normal = N;
 
-    if (cosi < 0.0) /* Ray is inside the object */
+    if (cosI < 0.0) 
     {
-        cosi = -cosi;
-        std::swap(etai, etat);
+        cosI = -cosI;
+    }
+    else
+    {
+        std::swap(etaI, etaT);
         Normal = -Normal;
     }
-    double eta = etai / etat;
-    double k = 1.0 - eta * eta * (1.0 - cosi * cosi);
-    return k < 0.0 ? Vector3(0.0) : I * eta + Normal * (eta * cosi - sqrt(k));
+    const double eta = etaI / etaT;
+    const double K = 1.0 - eta * eta * (1.0 - cosI * cosI);
+    return K < 0 ? Vector3(0.0) : eta * I + (eta * cosI - std::sqrt(K)) * Normal;
 }
 
-inline void DrawPercent(const uint32_t Current, const uint32_t Max, const uint8_t Step, const char* Task = "Processing")
+inline void DrawPercent(const char* Context, const char* Task, const uint32_t Current, const uint32_t Max, const uint8_t Step)
 {
     const uint8_t Denom = 100 / Step;
     if (Current % (Max / Denom) == 0)
     {
-        system(("CLS"));
-        std::cout << Task << "... " << Current * 100 / Max << "%\n";
+        uint32_t Percent = static_cast<uint32_t>(static_cast<double>(Current) / Max * 100);
+        LOG(Context, LogType::LOG, (std::string(Task) + "... %d%%").c_str(), Percent);
     }
 }
-inline void DrawTask(const char* Task = "Processing")
+inline void DrawTask(const char* Context, const char* Task = "Processing")
 {
-    system(("CLS"));
-    std::cout << Task << "... ";
+    LOG(Context, LogType::LOG, Task);
 }
 
-inline Texture3D Texture3DFrom1D(const Texture1D& Texture, const EColorChannels Channels)
+inline RTexture<Vector3> Texture3DFrom1D(const RTexture<double>& Texture, const EColorChannels Channels)
 {
-    Texture3D ResultTexture(Texture.GetHeight(), Texture.GetWidth());
+    RTexture<Vector3> ResultTexture(Texture.GetHeight(), Texture.GetWidth());
 
     for (uint32_t i = 0; i < Texture.GetHeight(); i++)
         for (uint32_t j = 0; j < Texture.GetWidth(); j++)
@@ -122,6 +157,11 @@ inline Texture3D Texture3DFrom1D(const Texture1D& Texture, const EColorChannels 
 		}
 	
     return ResultTexture;
+}
+
+inline Vector2 CartesianToPolar(const Vector2& Cartesian)
+{
+    return Vector2(std::sqrt(Cartesian.X * Cartesian.X + Cartesian.Y * Cartesian.Y), std::atan2(Cartesian.Y, Cartesian.X));
 }
 
 namespace BRDF

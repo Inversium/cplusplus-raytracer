@@ -1,56 +1,57 @@
 #pragma once
-#include "math/mvector.h"
 
-struct RRay
-{
-	Vector3 Origin = Vector3(0.0, 0.0, 0.0);
-	Vector3 Direction = Vector3(0.0, 0.0, -1.0);
+#include <sstream>
+#include <vector>
+#include <fstream>
 
-	RRay() = default;
-};
-
-struct RMaterial
-{
-	Vector3 Color;
-	double Roughness = 0.5;
-	double Metallic = 0.0;
-	double RefractiveIndex = 1.0;
-	double Transmission = 0.0;
-	Vector3 Emissive;
-
-	RMaterial() = default;
-
-	RMaterial(const Vector3 InColor, const double InRoughness, const double InMetallic, const double InRefractiveIndex, const double InTransmission, const Vector3 InEmissive) :
-		Color(InColor),
-		Roughness(InRoughness),
-		Metallic(InMetallic),
-		RefractiveIndex(InRefractiveIndex),
-		Transmission(InTransmission),
-		Emissive(InEmissive) {}
-
-	static const RMaterial Metal;
-	static const RMaterial RedPlastic;
-	static const RMaterial BluePlastic;
-	static const RMaterial YellowRubber;
-	static const RMaterial Mirror;
-	static const RMaterial Glass;
-	static const RMaterial Diamond;
-};
+#include "math/Vector.h"
+#include "CoreUtilities.h"
+#include "Transform.h"
+#include "Material.h"
 
 
-struct RHit
+
+struct Vertex
 {
 	Vector3 Position;
 	Vector3 Normal;
-	RMaterial Mat;
-	double Depth = (double)LLONG_MAX;
+	Vector2 UV;
+
+	Vertex() : Position(0.0), Normal(0.0), UV(0.0) {}
+	Vertex(const Vector3& InPosition, const Vector3& InNormal) : Position(InPosition), Normal(InNormal) {}
+};
+
+struct Triangle
+{
+	const Vertex* Vertices[3];
+
+	Triangle()
+	{
+		Vertices[0] = nullptr;
+		Vertices[1] = nullptr;
+		Vertices[2] = nullptr;
+	}
+	Triangle(Vertex& V1, Vertex& V2, Vertex& V3)
+	{
+		Vertices[0] = &V1;
+		Vertices[1] = &V2;
+		Vertices[2] = &V3;
+	}
+
+	double Area() const 
+	{ 
+		const Vector3 Edge1 = Vertices[1]->Position - Vertices[0]->Position;
+		const Vector3 Edge2 = Vertices[2]->Position - Vertices[0]->Position;
+		return (Edge1 ^ Edge2).Length() / 2.0; 
+	}
 };
 
 class OObject
 {
 public:
-	RMaterial Mat;
-	Vector3 Position;
+	RMaterial* Mat = nullptr;
+	RTransform Transform;
+
 
 	virtual bool Intersects(const RRay Ray, RHit& OutHit) const { return false; }
 };
@@ -75,7 +76,7 @@ public:
 	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override;
 };
 
-/* Axis Aligned Bounding Box class, it uses the position member as origin and Extent as the actual extent */
+/* Axis Aligned Bounding Box class */
 class OBox : public OObject
 {
 public:
@@ -92,3 +93,31 @@ public:
 
 	OLight() = default;
 };
+
+
+class OMesh : public OObject
+{
+public:
+	OMesh(std::string Path);
+	OMesh() = default;
+
+private:
+	std::vector<Vertex> Vertices;
+	std::vector<Triangle> Triangles;
+	OBox AABB;
+
+	Vertex GetVertex(uint32_t Index) const;
+	Vertex GetVertex(uint32_t TriangleIndex, uint8_t LocalIndex) const;
+	void UpdateAABB();
+
+	bool TriangleIntersect(const uint32_t FaceIndex, const RRay Ray, RHit& OutHit) const;
+
+public:
+	bool LoadModel(std::string Path);
+	uint32_t NVerts() const;
+	uint32_t NFaces() const;
+
+	virtual bool Intersects(const RRay Ray, RHit& OutHit) const;
+};
+
+

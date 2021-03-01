@@ -1,10 +1,11 @@
 #pragma once
 
-#include "Headers/math/mvector.h"
+#include "Headers/math/Vector.h"
 #include <vector>
 #include <fstream>
 
 #include "Scene.h"
+#include "Texture.h"
 
 #define PIXELDEPTH 24
 #define include_padding(h, w) h * (w + ((4 - (w * PIXELDEPTH / 8) % 4) % 4)) * PIXELDEPTH
@@ -126,7 +127,7 @@ const unsigned char* make_header(const unsigned int height, const unsigned int w
     return output;
 }
 
-inline void SaveImage(const Texture3D& Texture, const char* FileName = "output.bmp")
+inline void SaveImage(const RTexture<Vector3>& Texture, const char* FileName = "output.bmp")
 {
     FILE* bmp = nullptr;
     fopen_s(&bmp, FileName, "wb");
