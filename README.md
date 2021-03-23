@@ -1,2 +1,2 @@
 # cplusplus-raytracer
-![alt text](final.bmp?raw=true)
+![alt text](Result/final.png?raw=true)
