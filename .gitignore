@@ -9,6 +9,9 @@
 *.user
 *.userosscache
 *.sln.docstates
+/Raytracer/Implementation/.clang-tidy
+/Raytracer/Implementation/math/.clang-tidy
+/Raytracer/.clang-tidy
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -339,9 +342,6 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
-*.bmp
-!final.bmp
-/Raytracer/Implementation/.clang-tidy
-/Raytracer/Implementation/math/.clang-tidy
-/Raytracer/.clang-tidy
-/glfw3.lib
+
+
+
