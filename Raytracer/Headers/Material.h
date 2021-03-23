@@ -5,25 +5,27 @@
 
 struct RMaterial
 {
+	Vector3 Color;
+
 protected:
 	RMaterial() {};
+	RMaterial(const Vector3& InColor) : Color(InColor) {};
 
 	virtual ~RMaterial() {};
 };
 
-struct RMaterialBlinnPhong : RMaterial
+struct RMaterialBlinnPhong : public RMaterial
 {
-	Vector3 Color;
+	
 	double SpecularExponent;
 
 	RMaterialBlinnPhong(const Vector3& InColor, const double InSpecularExponent)
-		: Color(InColor), SpecularExponent(InSpecularExponent) {}
+		: RMaterial(InColor), SpecularExponent(InSpecularExponent) {}
 };
 
 
 struct RMaterialPBR : public RMaterial
 {
-	Vector3 Color;
 	double Roughness = 0.5;
 	double Metallic = 0.0;
 	double RefractiveIndex = 1.0;
@@ -33,7 +35,7 @@ struct RMaterialPBR : public RMaterial
 	RMaterialPBR() = default;
 
 	RMaterialPBR(const Vector3 InColor, const double InRoughness, const double InMetallic, const double InRefractiveIndex, const double InTransmission, const Vector3 InEmissive) :
-		Color(InColor),
+		RMaterial(InColor),
 		Roughness(InRoughness),
 		Metallic(InMetallic),
 		RefractiveIndex(InRefractiveIndex),

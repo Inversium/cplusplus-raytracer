@@ -3,13 +3,11 @@
 #include <vector>
 
 
-#include "Core.h"
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_STATIC
-#include "../ThirdParty/stb_image.h"
+#include "math/Vector.h"
+#include "ImageUtility.h"
 
 
-template<class T = Vector3>
+template<typename T>
 struct RTexture
 {
 	RTexture(const uint32_t InHeight, const uint32_t InWidth) : Height(InHeight), Width(InWidth)
@@ -31,7 +29,7 @@ public:
 	uint32_t GetWidth() const { return Width; }
 
 	/* 
-	 *  Get value of the pixel at (X, Y) coordinates assuming X is in range [0, Width] and Y in range [0, Height]
+	 *  Get value of the pixel at (X, Y) coordinates assuming X is in range [0, Width) and Y in range [0, Height)
 	 *  Values outside the range of height and width will be clamped 
 	 */
 	T Get(const uint32_t X, const uint32_t Y) const;
@@ -45,7 +43,7 @@ public:
 	T GetByUV(const Vector2 UV, bool UseBilinear = false) const;
 
 	/* 
-	 *  Write value to the pixel at (X, Y) coordinates assuming X is in range [0, Width] and Y in range [0, Height]
+	 *  Write value to the pixel at (X, Y) coordinates assuming X is in range [0, Width) and Y in range [0, Height)
 	 *  Values outside the range of height and width won't be clamped and this will throw out of bounds exception
 	 */
 	void Write(const T& Value, const uint32_t X, const uint32_t Y);
@@ -140,26 +138,7 @@ inline void RTexture<T>::Resize(uint16_t NewHeight, uint16_t NewWidth, bool UseB
 template<class T>
 inline bool RTexture<T>::Load(const char* Filename)
 {
-	int32_t ImageHeight, ImageWidth, Ch;
-	float* Image = stbi_loadf(Filename, &ImageWidth, &ImageHeight, &Ch, 0);
-	if (!Image || Ch != 3) return false;
-
-	Height = ImageHeight;
-	Width = ImageWidth;
-	Texture.clear();
-	Texture.resize(0);
-
-	for (uint32_t i = 0; i < ImageWidth * ImageHeight; i++)
-	{
-		Vector3 Color;
-		Color.X = Image[i * 3 + 0];
-		Color.Y = Image[i * 3 + 1];
-		Color.Z = Image[i * 3 + 2];
-		Texture.push_back(Color);
-	}
-
-	stbi_image_free(Image);
-	return true;
+	return ImageUtility::LoadImage(*this, Filename);
 }
 
 template<class T>

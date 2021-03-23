@@ -76,6 +76,13 @@ struct Vector2
 	bool operator<=(const Vector2& Other) const;
 	bool operator>=(const Vector2& Other) const;
 
+	Vector2& operator+=(const Vector2& Other);
+	Vector2& operator*=(const Vector2& Other);
+	Vector2& operator/=(const Vector2& Other);
+	Vector2& operator-=(const Vector2& Other);
+	Vector2& operator*=(const double& Scale);
+	Vector2& operator/=(const double& Scale);
+
 
 	static const Vector2 I;
 	static const Vector2 J;
@@ -156,6 +163,13 @@ struct Vector3
 	bool operator>(const Vector3& Other) const;
 	bool operator<=(const Vector3& Other) const;
 	bool operator>=(const Vector3& Other) const;
+
+	Vector3& operator+=(const Vector3& Other);
+	Vector3& operator*=(const Vector3& Other);
+	Vector3& operator/=(const Vector3& Other);
+	Vector3& operator-=(const Vector3& Other);
+	Vector3& operator*=(const double& Scale);
+	Vector3& operator/=(const double& Scale);
 
 	static const Vector3 I;
 	static const Vector3 J;
@@ -561,6 +575,68 @@ inline bool Vector2::operator>=(const Vector2& Other) const
 {
 	return Length() >= Other.Length();
 }
+
+
+
+inline Vector3& Vector3::operator+=(const Vector3& Other)
+{
+	return (*this = *this + Other);
+}
+inline Vector3& Vector3::operator*=(const Vector3& Other)
+{
+	return (*this = *this * Other);
+}
+inline Vector3& Vector3::operator/=(const Vector3& Other)
+{
+	return (*this = *this / Other);
+}
+inline Vector3& Vector3::operator-=(const Vector3& Other)
+{
+	return (*this = *this - Other);
+}
+
+inline Vector3& Vector3::operator*=(const double& Scale)
+{
+	return (*this = *this * Scale);
+}
+
+inline Vector3& Vector3::operator/=(const double& Scale)
+{
+	return (*this = *this / Scale);
+}
+
+
+
+
+
+inline Vector2& Vector2::operator+=(const Vector2& Other)
+{
+	return (*this = *this + Other);
+}
+inline Vector2& Vector2::operator*=(const Vector2& Other)
+{
+	return (*this = *this * Other);
+}
+inline Vector2& Vector2::operator/=(const Vector2& Other)
+{
+	return (*this = *this / Other);
+}
+inline Vector2& Vector2::operator-=(const Vector2& Other)
+{
+	return (*this = *this - Other);
+}
+
+inline Vector2& Vector2::operator*=(const double& Scale)
+{
+	return (*this = *this * Scale);
+}
+
+inline Vector2& Vector2::operator/=(const double& Scale)
+{
+	return (*this = *this / Scale);
+}
+
+
 
 inline Vector3 operator*(const double Scale, const Vector3& V)
 {

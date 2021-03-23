@@ -3,6 +3,7 @@
 #include "../Headers/OObject.h"
 #include "../Headers/Texture.h"
 #include "../Headers/ShadingModel.h"
+#include "../Headers/Shader.h"
 #include <chrono>
 
 
@@ -155,6 +156,8 @@ void RScene::AddObject(OObject* Object)
 
 Vector3 RScene::SampleEnvMap(const Vector3& Direction) const
 {
+	if (!EnvironmentTexture) return { 0.0, 0.0, 0.0 };
+
 	Vector2 Polar = CartesianToPolar(Vector2(Direction.X, Direction.Y));
 	const double U = ((Polar.Y / PI) + 1.0) * 0.5;
 	const double V = (Direction.Z + 1.0) * 0.5;
@@ -279,275 +282,34 @@ void RScene::Render()
 
 void RScene::SetEnvironmentTexture(const RTexture<Vector3>& Texture)
 {
-	EnvironmentTexture = new RTexture(Texture);
-}
-
-Vector3 RScene::TraceRay(const RRay& Ray, const uint8_t Depth) const
-{
-	//if (Depth >= RayDepth) return SampleEnvMap(Ray.Direction);
-
-	//RHit HitInfo;
-
-	///* If any object is hit by ray*/
-	//if (QueryScene(Ray, HitInfo))
-	//{
-	//	const auto M = HitInfo.Mat;
-	//	Vector3 Color(0.0);
-	//	const bool Inside = (Ray.Direction | HitInfo.Normal) > 0;
-
-	//	/* Loop over each Light Source */
-	//	for (auto const* LightSource : SceneLights)
-	//	{
-	//		const auto LightPos = LightSource->Transform.GetPosition();
-	//		const auto LightDir = (LightPos - HitInfo.Position).Normalized();
-
-	//		const double ConeAngle = GetConeAngleByFittingSphere(LightSource->Radius,
-	//			(LightPos - HitInfo.Position).Length());
-
-	//		double LightAmount = 1.0;
-
-	//		if (bShadows)
-	//		{
-	//			double SampleSum = 0.0;
-
-	//			/* Collect samples for soft shadows */
-	//			for (size_t Sample = 0; Sample < ShadowSamples; Sample++)
-	//			{
-	//				RRay ShadowRay;
-	//				ShadowRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
-	//				ShadowRay.Direction = GetRandomUnitVectorInsideCone(LightDir, ConeAngle);
-
-	//				/*
-	//				 * We don't want full shadows from transparent objects,
-	//				 * so loop if the shadow ray hit object with transmission > 0.0
-	//				 */
-	//				double LightingScale = 1.0;
-	//				RHit ShadowHit;
-	//				while (QueryScene(ShadowRay, ShadowHit))
-	//				{
-	//					RHit TempHit;
-	//					LightSource->Intersects(ShadowRay, TempHit);
-
-	//					/* There's shadow only when the intersection point lies before LightSource */
-	//					if (ShadowHit.Depth < TempHit.Depth)
-	//					{
-	//						if (ShadowHit.Mat.Transmission > 0.0)
-	//						{
-	//							/* Avoid self-intersection */
-	//							const double Dot = ShadowHit.Normal | ShadowRay.Direction;
-	//							ShadowRay.Origin = ShadowHit.Position + ShadowHit.Normal * (Dot < 0.0 ? -1e-6 : 1e-6);
-
-	//							LightingScale *= ShadowHit.Mat.Transmission;
-	//						}
-	//						else
-	//						{
-	//							LightingScale = 0.0;
-	//							break;
-	//						}
-	//					}
-	//					else
-	//					{
-	//						break;
-	//					}
-	//				}
-
-	//				SampleSum += std::sqrt(LightingScale) * Clamp(HitInfo.Normal | ShadowRay.Direction, 0.0, 1.0);
-	//			}
-
-	//			LightAmount = SampleSum / ShadowSamples;
-	//		}
-
-
-	//		const double Distance = (LightPos - HitInfo.Position).Length();
-	//		const double Attenuation = 1.0 / (Distance * Distance);
-	//		const Vector3 Radiance = LightSource->Color * Attenuation;
-
-	//		double F = 0.0;
-	//		const double rS = BRDF::BRDF(HitInfo.Normal, -Ray.Direction, LightDir, M.Roughness, F);
-	//		const double kS = F;
-	//		const Vector3 kD = (Vector3(1.0) - Vector3(kS)) / PI * LightAmount;
-
-	//		RRay ReflectionRay;
-	//		ReflectionRay.Origin = HitInfo.Position + HitInfo.Normal * (Inside ? -1e-6 : 1e-6);
-	//		ReflectionRay.Direction = Ray.Direction.MirrorByVector(HitInfo.Normal);
-	//		const Vector3 ReflectedLight = TraceRay(ReflectionRay, Depth + 1);
-
-
-	//		Color = Color + (kD * M.Color * (1.0 - M.Metallic) + Vector3(rS)) * Radiance * (1.0 - M.Transmission); //Base light
-	//		Color = Color + ReflectedLight * kS; // Reflected light			
-	//		Color = Color * (Vector3(1.0) + AmbientLight);
-	//	}
-
-	//	
-	//	if (M.Transmission > 0.0)
-	//	{
-	//		Vector3 TransmittedLight;
-	//		RRay TransmittedRay;
-	//		TransmittedRay.Direction = Refract(Ray.Direction, HitInfo.Normal, M.RefractiveIndex).Normalized();
-	//		TransmittedRay.Origin = HitInfo.Position + HitInfo.Normal * (Inside ? 1e-6 : -1e-6);
-	//		TransmittedLight = TraceRay(TransmittedRay, Depth + 1);
-
-	//		Color = Color + TransmittedLight * M.Transmission; // Transmitted light
-	//	}
-
-	//	return Color + M.Emissive;
-	//}
-
-	return SampleEnvMap(Ray.Direction);
+	EnvironmentTexture = new RTexture<Vector3>(Texture);
 }
 
 RScene::PixelInfo RScene::TraceRay(const RRay& Ray) const
-{
-
-	RHit HitInfo;
-
-	/* If any object is hit by ray*/
-	if (QueryScene(Ray, HitInfo))
-	{
-		
-		const auto M = HitInfo.Mat;
-		Vector3 Color(0.0);
-
-		//const bool Inside = (Ray.Direction | HitInfo.Normal) > 0;
-
-		///* Loop over each Light Source */
-		//for (auto const* LightSource : SceneLights)
-		//{
-		//	const auto LightPos = LightSource->Transform.GetPosition();
-		//	const auto LightDir = (LightPos - HitInfo.Position).Normalized();
-
-		//	const double ConeAngle = GetConeAngleByFittingSphere(LightSource->Radius,
-		//		(LightPos - HitInfo.Position).Length());
-		//	
-		//	double LightAmount = 1.0;
-
-		//	if (bShadows)
-		//	{
-		//		double SampleSum = 0.0;
-
-		//		/* Collect samples for soft shadows */
-		//		for (size_t Sample = 0; Sample < ShadowSamples; Sample++)
-		//		{
-		//			RRay ShadowRay;
-		//			ShadowRay.Origin = HitInfo.Position + HitInfo.Normal * 1e-6;
-		//			ShadowRay.Direction = GetRandomUnitVectorInsideCone(LightDir, ConeAngle);
-
-		//			/*
-		//			 * We don't want full shadows from transparent objects,
-		//			 * so loop if the shadow ray hit object with transmission > 0.0
-		//			 */
-		//			double LightingScale = 1.0;
-		//			RHit ShadowHit;
-		//			while (QueryScene(ShadowRay, ShadowHit))
-		//			{
-		//				RHit TempHit;
-		//				LightSource->Intersects(ShadowRay, TempHit);
-
-		//				/* There's shadow only when the intersection point lies before LightSource */
-		//				if (ShadowHit.Depth < TempHit.Depth)
-		//				{
-		//					if (ShadowHit.Mat.Transmission > 0.0)
-		//					{
-		//						/* Avoid self-intersection */
-		//						const double Dot = ShadowHit.Normal | ShadowRay.Direction;
-		//						ShadowRay.Origin = ShadowHit.Position + ShadowHit.Normal * (Dot < 0.0 ? -1e-6 : 1e-6);
-
-		//						LightingScale *= ShadowHit.Mat.Transmission;
-		//					}
-		//					else
-		//					{
-		//						LightingScale = 0.0;
-		//						break;
-		//					}
-		//				}
-		//				else
-		//				{
-		//					break;
-		//				}
-		//			}
-
-		//			SampleSum += std::sqrt(LightingScale) * Clamp(HitInfo.Normal | ShadowRay.Direction, 0.0, 1.0);
-		//		}
-
-		//		LightAmount = SampleSum / ShadowSamples;
-		//	}
-		//	else
-		//	{
-		//		LightAmount *= Clamp(HitInfo.Normal | LightDir, 0.0, 1.0);
-		//	}
-
-
-		//	const double Distance = (LightPos - HitInfo.Position).Length();
-		//	const double Attenuation = 1.0 / (Distance * Distance);
-		//	const Vector3 Radiance = LightSource->Color * Attenuation;
-
-		//	double F = 0.0;
-		//	const double rS = BRDF::BRDF(HitInfo.Normal, -Ray.Direction, LightDir, M.Roughness, F);
-		//	const double kS = F;
-		//	const Vector3 kD = (Vector3(1.0) - Vector3(kS)) / PI * LightAmount;
-
-		//	RRay ReflectionRay;
-		//	ReflectionRay.Origin = HitInfo.Position + HitInfo.Normal * (Inside ? -1e-6 : 1e-6);
-		//	ReflectionRay.Direction = Ray.Direction.MirrorByVector(HitInfo.Normal);
-		//	const Vector3 ReflectedLight = TraceRay(ReflectionRay, 1);
-
-		//	
-
-
-		//	Color = Color + (kD * M.Color * (1.0 - M.Metallic) + Vector3(rS)) * Radiance * (1.0 - M.Transmission); //Base light
-		//	Color = Color + ReflectedLight * kS; // Reflected light
-		//	
-		//	Color = Color * (Vector3(1.0) + AmbientLight);
-		//}
-
-		//
-		//if (M.Transmission > 0.0)
-		//{
-		//	Vector3 TransmittedLight;
-		//	RRay TransmittedRay;
-		//	TransmittedRay.Direction = Refract(Ray.Direction, HitInfo.Normal, M.RefractiveIndex).Normalized();
-
-		//	if (!TransmittedRay.Direction.NearlyZero())
-		//	{
-		//		TransmittedRay.Origin = HitInfo.Position + HitInfo.Normal * (Inside ? 1e-6 : -1e-6);
-		//		TransmittedLight = TraceRay(TransmittedRay, 1);
-		//		Color = Color + TransmittedLight * M.Transmission; // Transmitted light
-		//	}
-
-		//	
-		//}
-
-		
-		for (auto* Light : SceneLights)
-		{
-			RLightInfo LightInfo(HitInfo, -Ray.Direction, Light);
-			Color = Color + Shader->Light(LightInfo);
-		}
-
-		PixelInfo Pixel;
-		//Pixel.Transmission	= M.Transmission;
-		Pixel.Depth				= HitInfo.Depth;
-		//Pixel.Emissive		= M.Emissive;
-		//Pixel.Metallic		= M.Metallic;
-		//Pixel.Roughness		= M.Roughness;
-		//Pixel.BaseColor		= M.Color;
-		Pixel.Normal		    = HitInfo.Normal;
-		Pixel.ColorHDR			= Color;
-		return Pixel;
-		
-
-		
-
-
-	}
-
-	return PixelInfo(SampleEnvMap(Ray.Direction));
+{	
+	PixelInfo Pixel;
+	Pixel.Transmission		= 0.0;
+	Pixel.Depth				= 0.0;
+	Pixel.Emissive			= Vector3(0.0);
+	Pixel.Metallic			= 0.0;
+	Pixel.Roughness			= 0.0;
+	Pixel.BaseColor			= Vector3(0.0);
+	Pixel.Normal		    = Vector3(0.0);
+	Pixel.ColorHDR			= Shader->Light(this, Ray);
+	return Pixel;
 }
 
-void RScene::SetShader(ShadingModel* InShader)
+void RScene::SetShader(RShader* InShader)
 {
 	Shader = InShader;
 }
+
+void RScene::SetBRDF(BRDF* InBRDF)
+{
+	ModelBRDF = InBRDF;
+}
+
+
 
 Vector3 RLightInfo::GetLightVector() const
 {
@@ -562,4 +324,9 @@ Vector3 RLightInfo::GetLightPosition() const
 Vector3 RLightInfo::GetLightColor() const
 {
 	return Light->Color;
+}
+
+double RLightInfo::GetLightDistance() const
+{
+	return (GetLightPosition() - Hit.Position).Length();
 }

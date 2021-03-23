@@ -19,8 +19,11 @@ public:
 	Vector3 GetScale() const;
 
 	void SetPosition(const Vector3& NewPosition);
+	void SetPosition(const double NewX, const double NewY, const double NewZ);
 	void SetRotation(const Vector3& NewRotation);
+	void SetRotation(const double NewXRot, const double NewYRot, const double NewZRot);
 	void SetScale(const Vector3& NewScale);
+	void SetScale(const double NewXScale, const double NewYScale, const double NewZScale);
 
 	void AddPosition(const Vector3& DeltaPosition);
 
@@ -69,14 +72,29 @@ inline void RTransform::SetPosition(const Vector3& NewPosition)
 	Position = NewPosition;
 }
 
+inline void RTransform::SetPosition(const double NewX, const double NewY, const double NewZ)
+{
+	SetPosition(Vector3(NewX, NewY, NewZ));
+}
+
 inline void RTransform::SetRotation(const Vector3& NewRotation)
 {
 	Rotation = EulerToQuaternion(NewRotation);
 }
 
+inline void RTransform::SetRotation(const double NewXRot, const double NewYRot, const double NewZRot)
+{
+	SetRotation(Vector3(NewXRot, NewYRot, NewZRot));
+}
+
 inline void RTransform::SetScale(const Vector3& NewScale)
 {
 	Scale = NewScale;
+}
+
+inline void RTransform::SetScale(const double NewXScale, const double NewYScale, const double NewZScale)
+{
+	SetScale(Vector3(NewXScale, NewYScale, NewZScale));
 }
 
 inline void RTransform::AddPosition(const Vector3& DeltaPosition)

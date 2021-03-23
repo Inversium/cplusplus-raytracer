@@ -7,10 +7,11 @@
 
 struct RRay
 {
+    RRay() {}
+    RRay(const Vector3 InOrigin, const Vector3 InDirection) : Origin(InOrigin), Direction(InDirection) {}
+
     Vector3 Origin = Vector3(0.0, 0.0, 0.0);
     Vector3 Direction = Vector3(0.0, 0.0, -1.0);
-
-    RRay() = default;
 };
 
 

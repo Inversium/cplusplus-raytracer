@@ -3,7 +3,7 @@
 const RMaterialPBR RMaterialPBR::Metal = RMaterialPBR(Vector3(1.0), 0.25, 1.0, 1.0, 0.0, Vector3(0.0));
 const RMaterialPBR RMaterialPBR::RedPlastic = RMaterialPBR(Vector3(1.0, 0.0, 0.0), 0.0, 0.0, 1.0, 0.0, Vector3(0.0));
 const RMaterialPBR RMaterialPBR::YellowRubber = RMaterialPBR(Vector3(1.0, 1.0, 0.0), 1.0, 0.0, 1.0, 0.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::BluePlastic = RMaterialPBR(Vector3(0.1, 0.1, 1.0), 0.0, 0.0, 1.0, 0.0, Vector3(0.0));
+const RMaterialPBR RMaterialPBR::BluePlastic = RMaterialPBR(Vector3(0.1, 0.1, 1.0), 0.1, 0.0, 1.0, 0.0, Vector3(0.0));
 const RMaterialPBR RMaterialPBR::Mirror = RMaterialPBR(Vector3(1.0), 0.0, 1.0, 1.0, 0.0, Vector3(0.0));
 const RMaterialPBR RMaterialPBR::Glass = RMaterialPBR(Vector3(0.0), 0.0, 0.0, 1.4, 1.0, Vector3(0.0));
 const RMaterialPBR RMaterialPBR::Diamond = RMaterialPBR(Vector3(0.0), 0.0, 0.0, 2.417, 1.0, Vector3(0.0));
@@ -33,12 +33,13 @@ bool OBox::Intersects(const RRay Ray, RHit& OutHit) const
 	OutHit.Mat = Mat;
 
 	const Vector3 LocalHit = OutHit.Position - Transform.GetPosition();
-	OutHit.Normal = {
+	Vector3 Normal = {
 		std::trunc(LocalHit.X / Extent.X * (1.0 + 1e-8)),
 		std::trunc(LocalHit.Y / Extent.Y * (1.0 + 1e-8)),
 		std::trunc(LocalHit.Z / Extent.Z * (1.0 + 1e-8))
 	};
-	if (bInsideBox) OutHit.Normal = -OutHit.Normal;
+	if (bInsideBox) Normal = -Normal;
+	OutHit.Normal = Normal.Normalized();
 
 	return true;
 }

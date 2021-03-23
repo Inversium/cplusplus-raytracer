@@ -9,7 +9,8 @@
 
 class OLight;
 class OObject;
-class ShadingModel;
+class BRDF;
+class RShader;
 
 
 class RScene
@@ -121,7 +122,9 @@ private:
 
 	RTexture<Vector3>* EnvironmentTexture = nullptr;
 
-	ShadingModel* Shader = nullptr;
+	RShader* Shader = nullptr;
+
+	BRDF* ModelBRDF = nullptr;
 
 
 public:
@@ -143,7 +146,9 @@ public:
 
 	bool QueryScene(const RRay& Ray, RHit& OutHit) const;
 
-	void SetShader(ShadingModel* InShader);
+	void SetShader(RShader* InShader);
+
+	void SetBRDF(BRDF* InBRDF);
 
 private:
 
@@ -151,8 +156,8 @@ private:
 	void ExtractLightSources();
 	
 	PixelInfo TraceRay(const RRay& Ray) const;
-	Vector3 TraceRay(const RRay& Ray, const uint8_t Depth) const;
 
+	friend class RShader;
 };
 
 struct RLightInfo
@@ -171,4 +176,7 @@ public:
 	Vector3 GetLightPosition() const;
 
 	Vector3 GetLightColor() const;
+
+	double GetLightDistance() const;
+
 };

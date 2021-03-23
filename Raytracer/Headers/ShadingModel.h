@@ -1,16 +1,23 @@
 #pragma once
 
-#include <functional>
+#include "math/Vector.h"
 
-class Vector3;
 class RScene;
 
+struct BRDFResult
+{
+	BRDFResult(const Vector3 InColor, const double InF0) : Color(InColor), F0(InF0) {}
 
-class ShadingModel
+	Vector3 Color;
+	double F0;
+};
+
+class BRDF
 {
 
 public:
-	virtual Vector3 Light(const RLightInfo& LightInfo, std::function<bool(const RRay&, RHit&)> QueryScene = nullptr) const = 0;
+	virtual BRDFResult Get(const class RLightInfo& LightInfo) const = 0;
 private:
 	virtual class RMaterial* GetDefaultMaterial() const = 0;
 };
+

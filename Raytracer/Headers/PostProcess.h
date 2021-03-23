@@ -21,15 +21,15 @@ inline void GaussianBlur(RTexture<Vector3>& Texture, const double Sigma)
 {
 	const uint32_t TextureSize = Texture.GetHeight() * Texture.GetWidth();
 	const int32_t Radius = 2 * static_cast<int32_t>(std::ceil(Sigma * 3)) + 1;
-	const uint8_t Height = Texture.GetHeight();
-	const uint8_t Width = Texture.GetWidth();
+	const uint32_t Height = Texture.GetHeight();
+	const uint32_t Width = Texture.GetWidth();
 	RTexture<Vector3> InitialTexture = Texture;
 
 
 	/* First pass of blurring - Horizontal */	
 	#pragma omp parallel for
-	for (int32_t X = 0; X < Texture.GetWidth(); X++)
-		for (int32_t Y = 0; Y < Texture.GetHeight(); Y++) 
+	for (int32_t X = 0; X < Width; X++)
+		for (int32_t Y = 0; Y < Height; Y++) 
 		{
 			double KernelSum = 0.0;
 			Vector3 Color(0.0);
@@ -50,8 +50,8 @@ inline void GaussianBlur(RTexture<Vector3>& Texture, const double Sigma)
 
 	/* Second pass of blurring - Vertical */
 	#pragma omp parallel for
-	for (int32_t X = 0; X < Texture.GetWidth(); X++)
-		for (int32_t Y = 0; Y < Texture.GetHeight(); Y++)
+	for (int32_t X = 0; X < Width; X++)
+		for (int32_t Y = 0; Y < Height; Y++)
 		{
 			double KernelSum = 0.0;
 			Vector3 Color(0.0);
@@ -78,7 +78,7 @@ inline void Bloom(RTexture<Vector3>& Texture, const double LuminanceThreshold = 
 	};
 
 	RTexture<Vector3> ExtractedBloom(Texture.GetHeight(), Texture.GetWidth());
-	#pragma omp parallel for collapse(2)
+	#pragma omp parallel for
 	for (int32_t i = 0; i < Texture.GetHeight(); i++)
 		for (int32_t j = 0; j < Texture.GetWidth(); j++)
 		{
@@ -88,7 +88,7 @@ inline void Bloom(RTexture<Vector3>& Texture, const double LuminanceThreshold = 
 
 	GaussianBlur(ExtractedBloom, Sigma);
 
-	#pragma omp parallel for collapse(2)
+	#pragma omp parallel for
 	for (int32_t i = 0; i < Texture.GetHeight(); i++)
 		for (int32_t j = 0; j < Texture.GetWidth(); j++)
 			Texture.Write(Texture.Get(j, i) + ExtractedBloom.Get(j, i), j, i);
