@@ -3,9 +3,8 @@
 #include <string>
 #include <stdexcept>
 
-#define PI 3.1415926535
-#define SMALL_NUMBER 1e-7
-
+constexpr double PI = 3.1415926535;
+constexpr double SMALL_NUMBER = 1e-8;
 
 
 struct Vector2
@@ -55,7 +54,7 @@ struct Vector2
 	/*Get a copy with sign components*/
 	Vector2 Sign() const;
 
-	static Vector2 Abs(const Vector2& V);
+	Vector2 Abs() const;
 
 	double operator[](const int Index) const;
 	Vector2 operator-() const;
@@ -95,6 +94,7 @@ struct Vector3
 	double X, Y, Z;
 
 	Vector3() : X(0.0), Y(0.0), Z(0.0) {}
+
 
 	Vector3(const double InX, const double InY, const double InZ) : X(InX), Y(InY), Z(InZ) {}
 
@@ -141,7 +141,7 @@ struct Vector3
 	/*Get a copy with sign components*/
 	Vector3 Sign() const;
 
-	static Vector3 Abs(const Vector3& V);
+	Vector3 Abs() const;
 
 
 	double operator[](const int Index) const;
@@ -286,16 +286,16 @@ inline bool Vector2::Equals(const Vector2& Other, const double Tolerance) const
 
 inline bool Vector3::IsNormalized() const
 {
-	return std::abs(1 - Length()) < SMALL_NUMBER;
+	return std::abs(1.0 - Length()) < SMALL_NUMBER;
 }
 inline bool Vector2::IsNormalized() const
 {
-	return std::abs(1 - Length()) < SMALL_NUMBER;
+	return std::abs(1.0 - Length()) < SMALL_NUMBER;
 }
 
 inline Vector3 Vector3::MirrorByVector(const Vector3& Normal) const
 {
-	return *this - Normal * (2 * (*this | Normal));
+	return *this - Normal * (2.0 * (*this | Normal));
 }
 inline Vector2 Vector2::MirrorByVector(const Vector2& Normal) const
 {
@@ -325,7 +325,7 @@ inline double Vector2::GetMin() const
 inline Vector3 Vector3::MaxAxis() const
 {
 	int MaxInd = 0;
-	const Vector3 AbsVector = Vector3::Abs(*this);
+	const Vector3 AbsVector = this->Abs();
 	if (AbsVector.Y > AbsVector.X) MaxInd = 1;
 	if (AbsVector.Z > AbsVector[MaxInd]) MaxInd = 2;
 	switch(MaxInd)
@@ -338,7 +338,7 @@ inline Vector3 Vector3::MaxAxis() const
 }
 inline Vector2 Vector2::MaxAxis() const
 {
-	const Vector2 AbsVector = Vector2::Abs(*this);
+	const Vector2 AbsVector = this->Abs();
 	if(AbsVector.X > AbsVector.Y)
 	{
 		return Vector2::I;
@@ -352,7 +352,7 @@ inline Vector2 Vector2::MaxAxis() const
 inline Vector3 Vector3::MinAxis() const
 {
 	int MinInd = 0;
-	const Vector3 AbsVector = Vector3::Abs(*this);
+	const Vector3 AbsVector = this->Abs();
 	if (AbsVector.Y < AbsVector.X) MinInd = 1;
 	if (AbsVector.Z < AbsVector[MinInd]) MinInd = 2;
 	switch (MinInd)
@@ -371,7 +371,7 @@ inline bool Vector3::NearlyZero(const double Tolerance = 1e-6) const
 
 inline Vector2 Vector2::MinAxis() const
 {
-	const Vector2 AbsVector = Vector2::Abs(*this);
+	const Vector2 AbsVector = this->Abs();
 	if (AbsVector.X < AbsVector.Y)
 	{
 		return Vector2::I;
@@ -384,7 +384,8 @@ inline Vector2 Vector2::MinAxis() const
 
 inline Vector3 Vector3::Sign() const
 {
-	return {
+	return 
+	{
 		static_cast<double>(0 < X) - static_cast<double>(X < 0),
 		static_cast<double>(0 < Y) - static_cast<double>(Y < 0),
 		static_cast<double>(0 < Z) - static_cast<double>(Z < 0)
@@ -392,37 +393,36 @@ inline Vector3 Vector3::Sign() const
 }
 inline Vector2 Vector2::Sign() const
 {
-	return {
+	return 
+	{
 		static_cast<double>(0 < X) - static_cast<double>(X < 0),
 		static_cast<double>(0 < Y) - static_cast<double>(Y < 0)
 	};
 }
 
-inline Vector3 Vector3::Abs(const Vector3& V)
+inline Vector2 Vector2::Abs() const
 {
-	return {
-		std::abs(V.X),
-		std::abs(V.Y),
-		std::abs(V.Z)
+	return
+	{
+		std::abs(X),
+		std::abs(Y)
 	};
 }
-inline Vector2 Vector2::Abs(const Vector2& V)
+inline Vector3 Vector3::Abs() const
 {
-	return {
-		std::abs(V.X),
-		std::abs(V.Y)
+	return 
+	{
+		std::abs(X),
+		std::abs(Y),
+		std::abs(Z)
 	};
-}
-
-inline Vector3 CrossProduct(Vector3& v1, Vector3& v2)
-{
-	return v1 ^ v2;
 }
 
 
 inline double Vector3::operator[](const int Index) const
 {
-	switch (Index) {
+	switch (Index) 
+	{
 	case 0: return X;
 	case 1: return Y;
 	case 2: return Z;
@@ -432,7 +432,8 @@ inline double Vector3::operator[](const int Index) const
 }
 inline double Vector2::operator[](const int Index) const
 {
-	switch (Index) {
+	switch (Index) 
+	{
 	case 0: return X;
 	case 1: return Y;
 	default: throw std::out_of_range("Index for vector out of array (must be in range 0-1)");
@@ -447,7 +448,6 @@ inline Vector2 Vector2::operator-() const
 {
 	return { -X, -Y };
 }
-
 
 inline Vector3 Vector3::operator+(const Vector3& Other) const
 {
@@ -524,11 +524,11 @@ inline Vector2 Vector2::operator/(const double Scale) const
 
 inline bool Vector3::operator==(const Vector3& Other) const
 {
-	return this->Equals(Other, SMALL_NUMBER);
+	return X == Other.X && Y == Other.Y && Z == Other.Z;
 }
 inline bool Vector2::operator==(const Vector2& Other) const
 {
-	return this->Equals(Other, SMALL_NUMBER);
+	return X == Other.X && Y == Other.Y;
 }
 
 inline bool Vector3::operator!=(const Vector3& Other) const
@@ -599,7 +599,6 @@ inline Vector3& Vector3::operator*=(const double& Scale)
 {
 	return (*this = *this * Scale);
 }
-
 inline Vector3& Vector3::operator/=(const double& Scale)
 {
 	return (*this = *this / Scale);
@@ -630,7 +629,6 @@ inline Vector2& Vector2::operator*=(const double& Scale)
 {
 	return (*this = *this * Scale);
 }
-
 inline Vector2& Vector2::operator/=(const double& Scale)
 {
 	return (*this = *this / Scale);

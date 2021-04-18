@@ -4,12 +4,13 @@
 
 
 #include "math/Vector.h"
+#include "CoreUtilities.h"
 #include "ImageUtility.h"
+#include "Color.h"
 
-
-template<typename T>
-struct RTexture
+class RTexture
 {
+public:
 	RTexture(const uint32_t InHeight, const uint32_t InWidth) : Height(InHeight), Width(InWidth)
 	{
 		Texture.resize(static_cast<size_t>(Height) * Width);
@@ -17,7 +18,7 @@ struct RTexture
 
 
 private:
-	std::vector<T> Texture;
+	std::vector<RColor> Texture;
 	uint32_t Height;
 	uint32_t Width;
 
@@ -28,36 +29,40 @@ public:
 	/* Get Width of the Texture in pixels */
 	uint32_t GetWidth() const { return Width; }
 
-	/* 
+	/*
 	 *  Get value of the pixel at (X, Y) coordinates assuming X is in range [0, Width) and Y in range [0, Height)
-	 *  Values outside the range of height and width will be clamped 
+	 *  Values outside the range of height and width will be clamped
 	 */
-	T Get(const uint32_t X, const uint32_t Y) const;
+	RColor Get(const uint32_t X, const uint32_t Y) const;
 
-	/* 
+	/*
 	 *  Get value of the pixel at (X, Y) coordinates assuming X is in range [0, 1] and Y in range [0, 1]
 	 *  Values outside the range of height and width will be wrapped to [0, 1]
-	 *  With UseBilinear = true this will return interpolated value of 4 pixels around the given point, 
+	 *  With UseBilinear = true this will return interpolated value of 4 pixels around the given point,
 	 *  otherwise it'll return the nearest value.
 	 */
-	T GetByUV(const Vector2 UV, bool UseBilinear = false) const;
+	RColor GetByUV(const Vector2 UV, bool UseBilinear = false) const;
 
-	/* 
+	/*
 	 *  Write value to the pixel at (X, Y) coordinates assuming X is in range [0, Width) and Y in range [0, Height)
 	 *  Values outside the range of height and width won't be clamped and this will throw out of bounds exception
 	 */
-	void Write(const T& Value, const uint32_t X, const uint32_t Y);
+	void Write(const RColor& Value, const uint32_t X, const uint32_t Y);
 
 	/*
 	 *  Write value to the pixel at (X, Y) coordinates assuming X is in range [0, 1] and Y in range [0, 1]
 	 *  Values outside the range of height and width will be wrapped to [0, 1]
 	 */
-	void WriteByUV(const T& Value, const Vector2 UV);
+	void WriteByUV(const RColor& Value, const Vector2 UV);
+
+	void Initialize(uint16_t NewHeight, uint16_t NewWidth);
 
 	/* Getters for iterators for texture manipulation */
-	typename std::vector<T>::iterator Begin();
-	typename std::vector<T>::iterator End();
-	const T* Data() const;
+	typename std::vector<RColor>::iterator Begin();
+	typename std::vector<RColor>::const_iterator Begin() const;
+	typename std::vector<RColor>::iterator End();
+	typename std::vector<RColor>::const_iterator End() const;
+	const RColor* Data() const;
 
 	/*
 	 * Resize texture to new resolution
@@ -73,25 +78,25 @@ public:
 
 
 
-template<class T>
-inline T RTexture<T>::Get(const uint32_t X, const uint32_t Y) const
+
+inline RColor RTexture::Get(const uint32_t X, const uint32_t Y) const
 {
 	const auto ClampedX = Clamp<uint32_t>(X, 0, GetWidth() - 1);
 	const auto ClampedY = Clamp<uint32_t>(Y, 0, GetHeight() - 1);
 
-	return Texture[ClampedY * Width + ClampedX];
+	return Texture[static_cast<size_t>(ClampedY) * Width + ClampedX];
 }
 
-template<class T>
-inline T RTexture<T>::GetByUV(const Vector2 UV, bool UseBilinear) const
+
+inline RColor RTexture::GetByUV(const Vector2 UV, bool UseBilinear) const
 {
 	Vector2 ClampedUV(std::fmod(UV.X, 1.0), std::fmod(UV.Y, 1.0));
 	if (UseBilinear)
 	{
 		uint16_t X = static_cast<uint16_t>(ClampedUV.X * Width);
 		uint16_t Y = static_cast<uint16_t>(ClampedUV.Y * Height);
-		T ColorA = LInterp(Get(X, Y), Get(X + 1, Y), ClampedUV.X * Width - X);
-		T ColorB = LInterp(Get(X, Y + 1), Get(X + 1, Y + 1), ClampedUV.X * Width - X);
+		RColor ColorA = LInterp(Get(X, Y), Get(X + 1, Y), ClampedUV.X * Width - X);
+		RColor ColorB = LInterp(Get(X, Y + 1), Get(X + 1, Y + 1), ClampedUV.X * Width - X);
 		return LInterp(ColorA, ColorB, ClampedUV.Y * Height - Y);
 	}
 	else
@@ -102,29 +107,37 @@ inline T RTexture<T>::GetByUV(const Vector2 UV, bool UseBilinear) const
 	}
 }
 
-template<class T>
-inline void RTexture<T>::Write(const T& Value, const uint32_t X, const uint32_t Y)
+
+inline void RTexture::Write(const RColor& Value, const uint32_t X, const uint32_t Y)
 {
-	Texture[Y * Width + X] = Value;
+	Texture[static_cast<size_t>(Y) * Width + X] = Value;
 }
 
-template<class T>
-inline void RTexture<T>::WriteByUV(const T& Value, const Vector2 UV)
+
+inline void RTexture::WriteByUV(const RColor& Value, const Vector2 UV)
 {
 	Vector2 ClampedUV(std::fmod(UV.X, 1.0), std::fmod(UV.Y, 1.0));
 	uint16_t X = static_cast<uint16_t>(ClampedUV.X * Width);
 	uint16_t Y = static_cast<uint16_t>(ClampedUV.Y * Height);
-	Texture[Y * Width + X] = Value;
+	Texture[static_cast<size_t>(Y) * Width + X] = Value;
 }
 
-template<class T>
-inline void RTexture<T>::Resize(uint16_t NewHeight, uint16_t NewWidth, bool UseBilinear)
+inline void RTexture::Initialize(uint16_t NewHeight, uint16_t NewWidth)
+{
+	Texture.clear();
+	Texture.resize(static_cast<size_t>(NewWidth) * NewHeight);
+	Height = NewHeight;
+	Width = NewWidth;
+}
+
+
+inline void RTexture::Resize(uint16_t NewHeight, uint16_t NewWidth, bool UseBilinear)
 {
 	RTexture NewTexture(NewHeight, NewWidth);
 
-#pragma omp parallel for collapse(2)
-	for (int16_t Y = 0; Y < NewHeight; Y++)
-		for (int16_t X = 0; X < NewWidth; X++)
+	#pragma omp parallel for
+	for (int32_t Y = 0; Y < NewHeight; Y++)
+		for (int32_t X = 0; X < NewWidth; X++)
 		{
 			double U = static_cast<double>(X) / NewWidth;
 			double V = static_cast<double>(Y) / NewHeight;
@@ -135,17 +148,20 @@ inline void RTexture<T>::Resize(uint16_t NewHeight, uint16_t NewWidth, bool UseB
 }
 
 
-template<class T>
-inline bool RTexture<T>::Load(const char* Filename)
+inline bool RTexture::Load(const char* Filename)
 {
-	return ImageUtility::LoadImage(*this, Filename);
+	return ImageUtility::LoadImage(this, Filename);
 }
 
-template<class T>
-inline typename std::vector<T>::iterator RTexture<T>::Begin() { return Texture.begin(); }
 
-template<class T>
-inline typename std::vector<T>::iterator RTexture<T>::End() { return Texture.end(); }
+inline typename std::vector<RColor>::iterator RTexture::Begin() { return Texture.begin(); }
 
-template<class T>
-inline const T* RTexture<T>::Data() const { return Texture.data(); }
+inline typename std::vector<RColor>::const_iterator RTexture::Begin() const { return Texture.begin(); }
+
+
+inline typename std::vector<RColor>::iterator RTexture::End() { return Texture.end(); }
+
+inline typename std::vector<RColor>::const_iterator RTexture::End() const { return Texture.end(); }
+
+
+inline const RColor* RTexture::Data() const { return Texture.data(); }

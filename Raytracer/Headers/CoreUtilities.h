@@ -2,11 +2,8 @@
 #include <iostream>
 #include <vector>
 
-
-#include "Scene.h"
 #include "math/Vector.h"
 #include "math/Math.h"
-#include "Texture.h"
 
 enum class LogType : uint8_t
 {
@@ -39,33 +36,6 @@ inline void LOG(const char* Context, LogType Type, const char* Message, Args... 
 
 
 
-
-enum class EColorChannels : uint8_t
-{
-	R = 1,
-	G = 2,
-	B = 4,
-	A = 8
-};
-
-constexpr EColorChannels operator|(const EColorChannels A, const EColorChannels B)
-{
-    return static_cast<EColorChannels>(static_cast<int>(A) | static_cast<int>(B));
-}
-constexpr EColorChannels operator&(const EColorChannels A, const EColorChannels B)
-{
-    return static_cast<EColorChannels>(static_cast<int>(A) & static_cast<int>(B));
-}
-constexpr EColorChannels operator~(const EColorChannels A)
-{
-    return static_cast<EColorChannels>(~static_cast<int>(A));
-}
-
-
-
-
-
-
 inline void DrawPercent(const char* Context, const char* Task, const uint32_t Current, const uint32_t Max, const uint8_t Step)
 {
     const uint8_t Denom = 100 / Step;
@@ -78,24 +48,4 @@ inline void DrawPercent(const char* Context, const char* Task, const uint32_t Cu
 inline void DrawTask(const char* Context, const char* Task = "Processing")
 {
     LOG(Context, LogType::LOG, Task);
-}
-
-inline RTexture<Vector3> Texture3DFrom1D(const RTexture<double>& Texture, const EColorChannels Channels)
-{
-    RTexture<Vector3> ResultTexture(Texture.GetHeight(), Texture.GetWidth());
-
-    for (uint32_t i = 0; i < Texture.GetHeight(); i++)
-        for (uint32_t j = 0; j < Texture.GetWidth(); j++)
-		{  	
-	        Vector3 V;
-	        if ((Channels & EColorChannels::R) == EColorChannels::R)
-	            V.X = Texture.Get(j, i);
-	        if ((Channels & EColorChannels::G) == EColorChannels::G)
-	            V.Y = Texture.Get(j, i);
-	        if ((Channels & EColorChannels::B) == EColorChannels::B)
-	            V.Z = Texture.Get(j, i);
-	        ResultTexture.Write(V, j, i);
-		}
-	
-    return ResultTexture;
 }

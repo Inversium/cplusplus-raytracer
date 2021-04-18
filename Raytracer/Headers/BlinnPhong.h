@@ -15,44 +15,42 @@ public:
 	virtual BRDFResult Get(const RLightInfo& LightInfo) const override;
 
 private:
-	virtual class RMaterialBlinnPhong* GetDefaultMaterial() const override;
+	virtual RMaterial GetDefaultMaterial() const override;
 
 };
 
-inline RMaterialBlinnPhong* BlinnPhong::GetDefaultMaterial() const
+inline RMaterial BlinnPhong::GetDefaultMaterial() const
 {
-	return new RMaterialBlinnPhong(Vector3(0.0), 1.0);
+	return RMaterial();
 }
 
 
 inline BRDFResult BlinnPhong::Get(const RLightInfo& LightInfo) const
 {
-	auto Mat = dynamic_cast<RMaterialBlinnPhong*>(LightInfo.Hit.Mat);
-	if (!Mat)
-	{
-		Mat = GetDefaultMaterial();
-	}
+	auto Mat = LightInfo.Mat;
 
-	const auto L = LightInfo.GetLightVector();
+	double SpecularExponent = 5.0;
+	Mat->GetFloatProperty(SpecularExponent, "SpecularExponent");
 
-	const double Distance = LightInfo.GetLightDistance();
-	const double Attenuation = Distance * Distance;
+	Vector3 Color = { 0.0, 0.0, 0.0 };
+	Mat->GetVectorProperty(Color, "Color");
+
+	const auto L = LightInfo.Light;
 
 	/* Diffuse lighting */
-	const double Lambertian = std::max(L | LightInfo.Hit.Normal, 0.0);
+	const double Lambertian = std::max(L | LightInfo.Normal, 0.0);
 
 	/* Specular highlights */
 	double Specular = 0.0;
 	if (Lambertian > 0.0)
 	{
 		const auto H = (L + LightInfo.View).Normalized();
-		const double SpecularAngle = H | LightInfo.Hit.Normal;
-		Specular = std::pow(SpecularAngle, Mat->SpecularExponent);
+		const double SpecularAngle = H | LightInfo.Normal;
+		Specular = std::pow(SpecularAngle, SpecularExponent);
 	}
 
-	Vector3 Color = Mat->Color * Lambertian * LightInfo.GetLightColor() / Attenuation;
-	Color += Specular * LightInfo.GetLightColor() / Attenuation;
+	Vector3 Diffuse = Color * Lambertian / PI;
 
 	
-	return BRDFResult(Color / PI, 1.0);
+	return BRDFResult(Diffuse + Vector3(Specular), Vector3(0.04), Diffuse, Vector3(Specular));
 }

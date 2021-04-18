@@ -8,6 +8,7 @@
 #include "CoreUtilities.h"
 #include "Transform.h"
 #include "Material.h"
+#include "AABB.h"
 
 
 
@@ -21,103 +22,157 @@ struct Vertex
 	Vertex(const Vector3& InPosition, const Vector3& InNormal) : Position(InPosition), Normal(InNormal) {}
 };
 
-struct Triangle
-{
-	const Vertex* Vertices[3];
 
+class RPrimitive : public std::enable_shared_from_this<RPrimitive>
+{
+protected:
+	SharedPtr<RMaterial> Mat = nullptr;
+
+public:	
+	RTransform Transform;
+
+	RPrimitive()
+	{
+		Mat = MakeShared<RMaterial>();
+	}
+
+	virtual AABB GetBoundingBox() const = 0;
+	virtual bool Intersects(const RRay& Ray, RHit& OutHit) const = 0;
+	virtual SharedPtr<RMaterial> GetMaterial() const { return Mat; };
+	virtual void SetMaterial(SharedPtr<RMaterial> NewMaterial) { Mat = NewMaterial; };
+};
+
+class Triangle : public RPrimitive
+{
+	SharedPtr<Vertex> Vertices[3];
+	bool bSmoothShading;
+
+public:
 	Triangle()
 	{
 		Vertices[0] = nullptr;
 		Vertices[1] = nullptr;
 		Vertices[2] = nullptr;
+		bSmoothShading = true;
 	}
-	Triangle(Vertex& V1, Vertex& V2, Vertex& V3)
+	Triangle(SharedPtr<Vertex>& V1, SharedPtr<Vertex>& V2, SharedPtr<Vertex>& V3, const bool InbSmoothShading = true)
 	{
-		Vertices[0] = &V1;
-		Vertices[1] = &V2;
-		Vertices[2] = &V3;
+		Vertices[0] = V1;
+		Vertices[1] = V2;
+		Vertices[2] = V3;
+		bSmoothShading = InbSmoothShading;
 	}
 
-	double Area() const 
-	{ 
+	const SharedPtr<Vertex> GetVertex(const uint8_t Index) const
+	{
+		return Vertices[Index];
+	}
+
+	void SetVertex(const uint8_t Index, SharedPtr<Vertex>& InVertex)
+	{
+		Vertices[Index] = InVertex;
+	}
+
+	double Area() const
+	{
 		const Vector3 Edge1 = Vertices[1]->Position - Vertices[0]->Position;
 		const Vector3 Edge2 = Vertices[2]->Position - Vertices[0]->Position;
-		return (Edge1 ^ Edge2).Length() / 2.0; 
+		return (Edge1 ^ Edge2).Length() / 2.0;
 	}
+
+	//Normalized normal of the triangle
+	Vector3 Normal() const
+	{
+		const Vector3 Edge1 = Vertices[1]->Position - Vertices[0]->Position;
+		const Vector3 Edge2 = Vertices[2]->Position - Vertices[0]->Position;
+		return (Edge1 ^ Edge2).Normalized();
+	}
+
+	//Unnormalized normal of the triangle, just the cross product
+	Vector3 RawNormal() const
+	{
+		const Vector3 Edge1 = Vertices[1]->Position - Vertices[0]->Position;
+		const Vector3 Edge2 = Vertices[2]->Position - Vertices[0]->Position;
+		return (Edge1 ^ Edge2);
+	}
+
+	
+	virtual AABB GetBoundingBox() const override;
+	virtual bool Intersects(const RRay& Ray, RHit& OutHit) const override;
 };
 
-class OObject
-{
-public:
-	RMaterial* Mat = nullptr;
-	RTransform Transform;
-
-
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) const { return false; }
-};
-
-class OSphere : public OObject
+class OSphere : public RPrimitive
 {
 public:
 	double Radius;
 
 	OSphere() : Radius(5.0) {}
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override;
+	virtual AABB GetBoundingBox() const override
+	{ 
+		return AABB(Transform.GetPosition() + Vector3(-Radius), Transform.GetPosition() + Vector3(Radius)); 
+	}
+	virtual bool Intersects(const RRay& Ray, RHit& OutHit) const override;
 };
 
-class OPlane : public OObject
+class OPlane : public RPrimitive
 {
 public:
 	Vector3 Normal;
 
-	OPlane() : Normal(Vector3(0.0, 1.0, 0.0)) {}
+	OPlane() : Normal(Vector3(0.0, -1.0, 0.0)) {}
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override;
+	virtual AABB GetBoundingBox() const override
+	{ 
+		Vector3 Min(-1000.0, -1000.0, -0.01);
+		Vector3 Max( 1000.0,  1000.0,  0.01);
+		Min = TransformToWorld(Min, Normal);
+		Max = TransformToWorld(Max, Normal);
+		return AABB(Min, Max); 
+	}
+	virtual bool Intersects(const RRay& Ray, RHit& OutHit) const override;
 };
 
-/* Axis Aligned Bounding Box class */
-class OBox : public OObject
+
+class OBox : public RPrimitive
 {
 public:
 	Vector3 Extent;
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) const override;
+	OBox() {}
+
+	virtual bool Intersects(const RRay& Ray, RHit& OutHit) const override;
 	void SetByMinMax(const Vector3& VMin, const Vector3& VMax);
 };
 
-class OLight : public OSphere
+
+
+
+
+class OMesh : public RPrimitive
 {
 public:
-	Vector3 Color = Vector3(1.0, 1.0, 1.0);
-
-	OLight() = default;
-};
-
-
-class OMesh : public OObject
-{
-public:
-	OMesh(std::string Path);
-	OMesh() = default;
+	OMesh(const char* Path);
+	OMesh() {};
 
 private:
-	std::vector<Vertex> Vertices;
-	std::vector<Triangle> Triangles;
-	OBox AABB;
+	std::vector<SharedPtr<Vertex>> Vertices;
+	std::vector<SharedPtr<Triangle>> Triangles;
+	AABB BBox;
 
-	Vertex GetVertex(uint32_t Index) const;
-	Vertex GetVertex(uint32_t TriangleIndex, uint8_t LocalIndex) const;
+	/* Call when the model's vertices/triangles was modified */
 	void UpdateAABB();
-
-	bool TriangleIntersect(const uint32_t FaceIndex, const RRay Ray, RHit& OutHit) const;
+	void UpdateSmoothNormals();
 
 public:
-	bool LoadModel(std::string Path);
-	uint32_t NVerts() const;
-	uint32_t NFaces() const;
+	bool LoadModel(const char* Path);
+	size_t CountVerts() const { return Vertices.size(); }
+	size_t CountFaces() const { return Triangles.size(); }
 
-	virtual bool Intersects(const RRay Ray, RHit& OutHit) const;
+	virtual AABB GetBoundingBox() const { return BBox; }
+	virtual bool Intersects(const RRay& Ray, RHit& OutHit) const;
+
+	friend class RScene;
 };
 
 

@@ -130,11 +130,15 @@
       <WarningLevel>Level4</WarningLevel>
       <ConformanceMode>true</ConformanceMode>
       <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Program Files\LLVM\bin;C:\Program Files\LLVM\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -145,12 +149,15 @@
     <ClCompile Include="raytracer\Raytracer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Raytracer\Headers\AABB.h" />
     <ClInclude Include="Raytracer\Headers\BlinnPhong.h" />
-    <ClInclude Include="Raytracer\Headers\BMPWriter.h" />
+    <ClInclude Include="Raytracer\Headers\BVH.h" />
+    <ClInclude Include="Raytracer\Headers\Color.h" />
     <ClInclude Include="Raytracer\Headers\CookTorrance.h" />
     <ClInclude Include="Raytracer\Headers\Core.h" />
     <ClInclude Include="Raytracer\Headers\CoreUtilities.h" />
     <ClInclude Include="Raytracer\Headers\ImageUtility.h" />
+    <ClInclude Include="Raytracer\Headers\Light.h" />
     <ClInclude Include="Raytracer\Headers\Material.h" />
     <ClInclude Include="Raytracer\Headers\math\Math.h" />
     <ClInclude Include="Raytracer\Headers\math\Matrix.h" />

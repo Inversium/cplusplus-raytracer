@@ -80,9 +80,6 @@
     <ClInclude Include="Raytracer\Headers\CoreUtilities.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Raytracer\Headers\BMPWriter.h">
-      <Filter>Header Files\Core</Filter>
-    </ClInclude>
     <ClInclude Include="Raytracer\Headers\ImageUtility.h">
       <Filter>Header Files\Core</Filter>
     </ClInclude>
@@ -94,6 +91,18 @@
     </ClInclude>
     <ClInclude Include="Raytracer\Headers\CookTorrance.h">
       <Filter>Header Files\Shading</Filter>
+    </ClInclude>
+    <ClInclude Include="Raytracer\Headers\AABB.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Raytracer\Headers\BVH.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Raytracer\Headers\Light.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Raytracer\Headers\Color.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

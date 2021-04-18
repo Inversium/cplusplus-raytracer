@@ -1,9 +1,10 @@
 #include "../Headers/Scene.h"
 #include "../Headers/CoreUtilities.h"
 #include "../Headers/OObject.h"
-#include "../Headers/Texture.h"
 #include "../Headers/ShadingModel.h"
 #include "../Headers/Shader.h"
+#include "../Headers/Light.h"
+#include "../Headers/BVH.h"
 #include <chrono>
 
 
@@ -11,148 +12,42 @@
 
 
 
-RScene::RScene(const uint16_t InHeight, const uint16_t InWidth) : Height(InHeight), Width(InWidth)
+RScene::RScene(const uint16_t InHeight, const uint16_t InWidth)
 {
-	SceneTexture = new RTexture<Vector3>(Height, Width);		
-	NormalTexture = new RTexture<Vector3>(Height, Width);
-	BaseColorTexture = new RTexture<Vector3>(Height, Width);
-	EmissiveTexture = new RTexture<Vector3>(Height, Width);
-
-	RoughnessTexture = new RTexture<double>(Height, Width);
-	MetallicTexture = new RTexture<double>(Height, Width);
-	TransmissionTexture = new RTexture<double>(Height, Width);
-	DepthTexture = new RTexture<double>(Height, Width);
-
+	RenderTexture = MakeUnique<RTexture>(InHeight, InWidth);
 
 	bSSAA = false;
-	bShadows = true;
-	FOV = 90.0 * PI / 180.0;
-	RayDepth = 1;
-	ShadowSamples = 16;
-	BackgroundColor = Vector3(0.0, 0.0, 0.0);
-	AmbientLight = Vector3(0.07);
+	SamplesSSAA = 4;
+	FOV = DegToRad(90.0);
 }
 
+RScene::~RScene() = default;
 
-double RScene::GetPixel1D(uint16_t X, uint16_t Y, const SceneType1D Type) const
-{	
-	switch (Type)
+
+void RScene::AddObject(SharedPtr<RPrimitive> Object)
+{
+	/* If object is a mesh, we want to add each its triangle as an individual object,
+	 * so before that we need to copy mesh transform and material to all triangles 
+	 * Probably not the best solution, should be reworked
+	 */
+	auto Mesh = std::dynamic_pointer_cast<OMesh>(Object);
+	if (Mesh)
 	{
-	case SceneType1D::DEPTH:
-		return DepthTexture->Get(X, Y);
-	case SceneType1D::METALLIC:
-		return MetallicTexture->Get(X, Y);
-	case SceneType1D::ROUGHNESS:
-		return RoughnessTexture->Get(X, Y);
-	case SceneType1D::TRANSMISSION:
-		return TransmissionTexture->Get(X, Y);
-	default:
-		return 0.0;
+		std::transform(Mesh->Triangles.begin(), Mesh->Triangles.end(), Mesh->Triangles.begin(),
+			[Mesh](SharedPtr<Triangle> Tri)
+			{
+				Tri->Transform = Mesh->Transform;
+				Tri->SetMaterial(Mesh->Mat);
+				return Tri;
+			});
+		SceneObjects.insert(SceneObjects.end(), Mesh->Triangles.begin(), Mesh->Triangles.end());
+	}
+	else
+	{
+		SceneObjects.push_back(Object);
 	}
 }
 
-Vector3 RScene::GetPixel3D(uint16_t X, uint16_t Y, const SceneType3D Type) const
-{
-	X = Clamp<uint16_t>(X, 0, Width - 1);
-	Y = Clamp<uint16_t>(Y, 0, Height - 1);
-
-	const uint32_t Index = Y * Width + X;
-
-	switch (Type)
-	{
-	case SceneType3D::HDR:
-		return SceneTexture->Get(X, Y);
-	case SceneType3D::BASE_COLOR:
-		return BaseColorTexture->Get(X, Y);
-	case SceneType3D::EMISSIVE:
-		return EmissiveTexture->Get(X, Y);
-	case SceneType3D::NORMAL:
-		return NormalTexture->Get(X, Y);
-	default:
-		return Vector3(0.0);
-	}
-}
-
-RTexture<double> RScene::GetTexture1D(const SceneType1D Type) const
-{
-	switch (Type)
-	{
-	case SceneType1D::DEPTH:
-		return *DepthTexture;
-	case SceneType1D::METALLIC:
-		return *MetallicTexture;
-	case SceneType1D::ROUGHNESS:
-		return *RoughnessTexture;
-	case SceneType1D::TRANSMISSION:
-		return *TransmissionTexture;
-	default:
-		return RTexture<double>(0, 0);
-	}
-}
-
-void RScene::GetTexture1D(const SceneType1D Type, RTexture<double>& OutTexture) const
-{
-	switch (Type)
-	{
-	case SceneType1D::DEPTH:
-		OutTexture = *DepthTexture;
-		break;
-	case SceneType1D::METALLIC:
-		OutTexture = *MetallicTexture;
-		break;
-	case SceneType1D::ROUGHNESS:
-		OutTexture = *RoughnessTexture;
-		break;
-	case SceneType1D::TRANSMISSION:
-		OutTexture = *TransmissionTexture;
-		break;
-	}
-}
-
-
-RTexture<Vector3> RScene::GetTexture3D(const SceneType3D Type) const
-{
-	switch (Type)
-	{
-	case SceneType3D::HDR:
-		return *SceneTexture;
-	case SceneType3D::BASE_COLOR:
-		return *BaseColorTexture;
-	case SceneType3D::EMISSIVE:
-		return *EmissiveTexture;
-	case SceneType3D::NORMAL:
-		return *NormalTexture;
-	default:
-		return RTexture<Vector3>(0, 0);
-	}
-}
-
-void RScene::GetTexture3D(const SceneType3D Type, RTexture<Vector3>& OutTexture) const
-{
-	switch (Type)
-	{
-	case SceneType3D::HDR:
-		OutTexture = *SceneTexture;
-		break;
-	case SceneType3D::BASE_COLOR:
-		OutTexture = *BaseColorTexture;
-		break;
-	case SceneType3D::EMISSIVE:
-		OutTexture = *EmissiveTexture;
-		break;
-	case SceneType3D::NORMAL:
-		OutTexture = *NormalTexture;
-		break;
-	default:
-		OutTexture = RTexture<Vector3>(0, 0);
-	}
-}
-
-
-void RScene::AddObject(OObject* Object)
-{
-	SceneObjects.insert(Object);
-}
 
 Vector3 RScene::SampleEnvMap(const Vector3& Direction) const
 {
@@ -161,30 +56,50 @@ Vector3 RScene::SampleEnvMap(const Vector3& Direction) const
 	Vector2 Polar = CartesianToPolar(Vector2(Direction.X, Direction.Y));
 	const double U = ((Polar.Y / PI) + 1.0) * 0.5;
 	const double V = (Direction.Z + 1.0) * 0.5;
-	return EnvironmentTexture->GetByUV({ U, 1.0 - V }, true);
+	return EnvironmentTexture->GetByUV({ U, 1.0 - V }, true).ToVector();
 }
 
 void RScene::ExtractLightSources()
 {
 	SceneLights.clear();
-	auto InitialSceneObjects = SceneObjects;
-	for(auto Object : InitialSceneObjects)
+	for(auto Primitive : SceneObjects)
 	{
-		auto Light = dynamic_cast<OLight*>(Object);
+		auto Light = std::dynamic_pointer_cast<RLight>(Primitive);
 		if (Light)
 		{
-			SceneLights.insert(Light);
-			SceneObjects.erase(Light);
+			SceneLights.push_back(Light);
 		}
 	}
 }
 
+#if USE_BVH
+void RScene::BuildBVH()
+{
+	LOG("Scene", LogType::LOG, "Start BVH building...");
+
+	const auto StartTime = std::chrono::high_resolution_clock::now();
+	BVHRoot = CreateBVH(this);
+	const auto EndTime = std::chrono::high_resolution_clock::now();
+
+	std::chrono::duration<double, std::milli> DeltaTime = EndTime - StartTime;
+	const double Time = DeltaTime.count() / 1000.0;
+	LOG("Scene", LogType::LOG, "BVH was built in %.2f seconds", Time);
+	LOG("Scene", LogType::LOG, "BVH has %d Primitives in %d Leaves", 
+		CountPrimitives(BVHRoot), 
+		CountLeaves(BVHRoot));
+}
+#endif
+
 bool RScene::QueryScene(const RRay& Ray, RHit& OutHit) const
 {
+	TotalRaysShooted++;
+#if USE_BVH
+	return BVHTraverse(BVHRoot, Ray, OutHit);
+#else
 	double MinDist = INFINITY;
 	bool bHit = false;
 
-	for (auto* Object : SceneObjects)
+	for (auto Object : SceneObjects)
 	{
 		RHit TempHit;
 		if (Object->Intersects(Ray, TempHit) && TempHit.Depth < MinDist)
@@ -192,16 +107,24 @@ bool RScene::QueryScene(const RRay& Ray, RHit& OutHit) const
 			bHit = true;
 			MinDist = TempHit.Depth;
 			OutHit = TempHit;
-		}
+}
 	}
 	return bHit;
+#endif
 }
 
 void RScene::Render()
 {
-	const auto StartTime = std::chrono::high_resolution_clock::now();
-
 	ExtractLightSources();
+
+#if USE_BVH
+	BuildBVH();
+#endif
+
+	const auto StartTime = std::chrono::high_resolution_clock::now();
+	
+	const auto Height = RenderTexture->GetHeight();
+	const auto Width = RenderTexture->GetWidth();
 	
 	const double AspectRatio = static_cast<double>(Width) / Height;
 
@@ -223,13 +146,18 @@ void RScene::Render()
 		for (int32_t j = 0; j < Width; j++)
 		{
 			CurrentPixel++;
-			PixelInfo Pixel;
+			RColor Pixel;
 			if (bSSAA)
 			{				
-				for (int32_t Sample = 0; Sample < 4; Sample++)
+				for (int32_t k = 0; k < SamplesSSAA; k++)
 				{
-					double SSX = 2.0 * (j + JitterMatrix[2 * Sample])		/ static_cast<double>(Width) - 1;
-					double SSY = 2.0 * (i + JitterMatrix[2 * Sample + 1])	/ static_cast<double>(Height) - 1;
+					/* Generate random numbers to shift ray inside a pixel */
+					const double EpsilonX = Random::RDouble();
+					const double EpsilonY = Random::RDouble();
+
+					/* Screen-Space coords of a pixel [-1.0; 1.0] */
+					double SSX = 2.0 * (j + EpsilonX) / static_cast<double>(Width) - 1.0;
+					double SSY = 2.0 * (i + EpsilonY) / static_cast<double>(Height) - 1.0;
 					SSX *= AspectRatio;
 
 					const double PixelCameraX = SSX * tan(FOV / 2.0);
@@ -237,15 +165,15 @@ void RScene::Render()
 
 					RRay Ray;
 					Ray.Origin = CameraPosition;
-					Ray.Direction = Vector3(PixelCameraX, PixelCameraY, -1.0).Normalized();
+					Ray.Direction = Vector3(1.0, PixelCameraX, -PixelCameraY).Normalized();
 
-					Pixel = Pixel + TraceRay(Ray);
+					Pixel += RenderPixel(Ray);
 				}
-				Pixel = Pixel / 4.0;
+				Pixel = Pixel / SamplesSSAA;
 			}
 			else
 			{
-
+				/* Screen-Space coords of a pixel [-1.0; 1.0] */
 				double SSX = 2.0 * (j + 0.5) / (double)Width - 1;
 				double SSY = 2.0 * (i + 0.5) / (double)Height - 1;
 				SSX *= AspectRatio;
@@ -257,17 +185,10 @@ void RScene::Render()
 				Ray.Origin = CameraPosition;
 				Ray.Direction = Vector3(1.0, PixelCameraX, -PixelCameraY).Normalized();
 
-				Pixel = TraceRay(Ray);
+				Pixel = RenderPixel(Ray);
 			}
 
-			SceneTexture->Write(Pixel.ColorHDR, j, i);
-			DepthTexture->Write(Pixel.Depth, j, i);
-			MetallicTexture->Write(Pixel.Metallic, j, i);
-			RoughnessTexture->Write(Pixel.Roughness, j, i);
-			NormalTexture->Write(Pixel.Normal, j, i);
-			TransmissionTexture->Write(Pixel.Transmission, j, i);
-			BaseColorTexture->Write(Pixel.BaseColor, j, i);
-			EmissiveTexture->Write(Pixel.Emissive, j, i);
+			RenderTexture->Write(Pixel, j, i);
 
 			DrawPercent("Scene", "Rendering", CurrentPixel, Height * Width, 5);
 		}
@@ -277,56 +198,26 @@ void RScene::Render()
 
 	std::chrono::duration<double, std::milli> DeltaTime = EndTime - StartTime;
 	const double Time = DeltaTime.count() / 1000.0;
-	LOG("Scene", LogType::LOG, "Rendering Time: %.2f seconds", Time);
+	LOG("Scene", LogType::LOG, "Rendering Time: %.2f seconds, total rays shooted: %d", Time, TotalRaysShooted);
 }
 
-void RScene::SetEnvironmentTexture(const RTexture<Vector3>& Texture)
+void RScene::SetEnvironmentTexture(UniquePtr<RTexture>& Texture)
 {
-	EnvironmentTexture = new RTexture<Vector3>(Texture);
+	EnvironmentTexture = std::move(Texture);
 }
 
-RScene::PixelInfo RScene::TraceRay(const RRay& Ray) const
+RColor RScene::RenderPixel(const RRay& Ray) const
 {	
-	PixelInfo Pixel;
-	Pixel.Transmission		= 0.0;
-	Pixel.Depth				= 0.0;
-	Pixel.Emissive			= Vector3(0.0);
-	Pixel.Metallic			= 0.0;
-	Pixel.Roughness			= 0.0;
-	Pixel.BaseColor			= Vector3(0.0);
-	Pixel.Normal		    = Vector3(0.0);
-	Pixel.ColorHDR			= Shader->Light(this, Ray);
-	return Pixel;
+	return Shader->Light(this, Ray);
 }
 
-void RScene::SetShader(RShader* InShader)
+void RScene::SetShader(UniquePtr<RShader> InShader)
 {
-	Shader = InShader;
+	Shader = std::move(InShader);
 }
 
-void RScene::SetBRDF(BRDF* InBRDF)
+void RScene::SetBRDF(UniquePtr<BRDF> InBRDF)
 {
-	ModelBRDF = InBRDF;
+	ModelBRDF = std::move(InBRDF);
 }
 
-
-
-Vector3 RLightInfo::GetLightVector() const
-{
-	return (Light->Transform.GetPosition() - Hit.Position).Normalized();
-}
-
-Vector3 RLightInfo::GetLightPosition() const
-{
-	return Light->Transform.GetPosition();
-}
-
-Vector3 RLightInfo::GetLightColor() const
-{
-	return Light->Color;
-}
-
-double RLightInfo::GetLightDistance() const
-{
-	return (GetLightPosition() - Hit.Position).Length();
-}

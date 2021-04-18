@@ -2,7 +2,7 @@
 
 #include "math/Vector.h"
 
-template<typename T>
+
 class RTexture;
 
 
@@ -13,9 +13,8 @@ enum class EImageFormat
 	BMP
 };
 
-class ImageUtility
+namespace ImageUtility
 {
-public:
-	static bool LoadImage(RTexture<Vector3>& Image, const char* Filename);
-	static void SaveImage(const RTexture<Vector3>& Image, const char* Filename, const EImageFormat Format = EImageFormat::PNG);
+	bool LoadImage(RTexture* Image, const char* Filename);
+	void SaveImage(const RTexture* const Image, const char* Filename, const EImageFormat Format = EImageFormat::PNG);
 };

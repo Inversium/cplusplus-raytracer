@@ -10,97 +10,138 @@
 #include "Headers/BlinnPhong.h"
 #include "Headers/CookTorrance.h"
 #include "Headers/Shader.h"
+#include "Headers/Light.h"
 #include "ThirdParty/glfw3.h"
 #include "ThirdParty/glfw3native.h"
 
 constexpr uint32_t HEIGHT = 720;
 constexpr uint32_t WIDTH = 1280;
 
+void AddCornellBox(RScene* Scene, const Vector3& Position, const Vector3& Extent)
+{
+    auto Left = MakeShared<OPlane>();
+    Left->Transform.SetPosition(Position + Vector3(0.0, -Extent.Y, 0.0));
+    auto LeftMat = MakeShared<RMaterial>();
+    LeftMat->InitializePBR(Vector3(1.0, 0.0, 0.0), Vector3(0.0), 0.8, 0.0, 1.0, 0.0);
+    Left->SetMaterial(LeftMat);
+    Left->Normal = Vector3(0.0, 1.0, 0.0);
 
+    auto Right = MakeShared<OPlane>();
+    Right->Transform.SetPosition(Position + Vector3(0.0, Extent.Y, 0.0));
+    auto RightMat = MakeShared<RMaterial>();
+    RightMat->InitializePBR(Vector3(0.0, 1.0, 0.0), Vector3(0.0), 0.8, 0.0, 1.0, 0.0);
+    Right->SetMaterial(RightMat);
+    Right->Normal = Vector3(0.0, -1.0, 0.0);
+
+    auto Back = MakeShared<OPlane>();
+    Back->Transform.SetPosition(Position + Vector3(Extent.X, 0.0, 0.0));
+    auto BackMat = MakeShared<RMaterial>();
+    BackMat->InitializePBR(Vector3(1.0), Vector3(0.0), 0.8, 0.0, 1.0, 0.0);
+    Back->SetMaterial(BackMat);
+    Back->Normal = Vector3(-1.0, 0.0, 0.0);
+
+    auto Top = MakeShared<OPlane>();
+    Top->Transform.SetPosition(Position + Vector3(0.0, 0.0, Extent.Z));
+    auto TopMat = MakeShared<RMaterial>();
+    TopMat->InitializePBR(Vector3(1.0), Vector3(0.0), 0.8, 0.0, 1.0, 0.0);
+    Top->SetMaterial(TopMat);
+    Top->Normal = Vector3(0.0, 0.0, -1.0);
+
+    auto Bottom = MakeShared<OPlane>();
+    Bottom->Transform.SetPosition(Position + Vector3(0.0, 0.0, -Extent.Z));
+    auto BottomMat = MakeShared<RMaterial>();
+    BottomMat->InitializePBR(Vector3(1.0), Vector3(0.0), 0.8, 0.0, 1.0, 0.0);
+    Bottom->SetMaterial(BottomMat);
+    Bottom->Normal = Vector3(0.0, 0.0, 1.0);
+
+    auto Front = MakeShared<OPlane>();
+    Front->Transform.SetPosition(Position + Vector3(-Extent.X, 0.0, 0.0));
+    auto FrontMat = MakeShared<RMaterial>();
+    FrontMat->InitializePBR(Vector3(1.0), Vector3(0.0), 0.8, 0.0, 1.0, 0.0);
+    Front->SetMaterial(FrontMat);
+    Front->Normal = Vector3(1.0, 0.0, 0.0);
+
+    auto Light = MakeShared<RSphereLight>(Vector3(600.0), 0.2);
+    Light->Transform.SetPosition(Position + Vector3(Extent.X / 2.0, 0.0, Extent.Z - 2.0));
+
+    Scene->AddObject(Left);
+    Scene->AddObject(Right);
+    Scene->AddObject(Back);
+    Scene->AddObject(Top);
+    Scene->AddObject(Bottom);
+    Scene->AddObject(Front);
+    Scene->AddObject(Light);
+}
+
+void Resize(GLFWwindow* Window, const int Width, const int Height)
+{
+    glViewport(0, 0, Width, Height);
+}
 
 int main()
 {
     RScene MainScene(HEIGHT, WIDTH);
-    MainScene.SetShader(new RShader);
-    MainScene.SetBRDF(new CookTorrance);
+    MainScene.SetShader(MakeUnique<RShader>());
+    MainScene.SetBRDF(MakeUnique<CookTorrance>());
 
-    RTexture<Vector3> EnvMap(0, 0);
-    EnvMap.Load("envmap.jpg");
-    //MainScene.SetEnvironmentTexture(EnvMap);
+    auto EnvMap = MakeUnique<RTexture>(0, 0);
+    EnvMap->Load("envmap.jpg");
+    MainScene.SetEnvironmentTexture(EnvMap);
 
     GLFWwindow* Window;
     glfwInit();
     Window = glfwCreateWindow(WIDTH, HEIGHT, "Raytracing", nullptr, nullptr);
     glfwMakeContextCurrent(Window);
-    
+    glfwSetWindowSizeCallback(Window, &Resize);
 
+    AddCornellBox(&MainScene, { 0.0, 0.0, 3.0 }, { 14.0, 10.0, 8.0 });
+   
 
-    auto* L = new OLight;
-    L->Transform.SetPosition(Vector3(-12.0, -5.0, 0.0));
-    L->Color = Vector3(1.0, 1.0, 1.0) * 900.0;
-    L->Radius = 5.0;
-    MainScene.AddObject(L);
-
-    
-    auto* L1 = new OLight;
-    L1->Transform.SetPosition(Vector3(10000.0, 7000.0, 10000.0));
-    L1->Color = Vector3(1.0, 1.0, 1.0) * 400000000.0;
-    L1->Radius = 5.0;
-    //MainScene.AddObject(L1);
-
-    auto* S1 = new OSphere;
+    auto S1 = MakeShared<OSphere>();
     S1->Radius = 2.0;
-    S1->Transform.SetPosition(Vector3(10.0, -5.0, -5.0));
-    S1->Mat = new RMaterialPBR(RMaterialPBR::BluePlastic);
-    MainScene.AddObject(S1);
+    S1->Transform.SetPosition(Vector3(10.0, -4.0, -3.0));
+    S1->SetMaterial(MakeShared<RMaterial>(RMaterial::WhiteDielectric(1.0)));
+    //MainScene.AddObject(S1);
 
-    auto* S2 = new OSphere;
+    auto S2 = MakeShared<OSphere>();
     S2->Radius = 3.0;
-    S2->Transform.SetPosition(Vector3(10.0, 5.0, -4.0));
-    S2->Mat = new RMaterialPBR(RMaterialPBR::YellowRubber);
-    MainScene.AddObject(S2);
+    S2->Transform.SetPosition(Vector3(10.0, 4.0, -2.0));
+    S2->SetMaterial(MakeShared<RMaterial>(RMaterial::Metal(0.25)));
+    //MainScene.AddObject(S2);
 
-    /*
-    auto* Duck = new OMesh("duck.obj");
-    Duck->Transform.SetPosition(Vector3(10.0, -5.0, 0.0));
-    Duck->Transform.SetScale(Vector3(1.0, 1.0, 1.0));
-    Duck->Mat = new RMaterialBlinnPhong(Vector3(1.0, 0.0, 0.0), 5.0);
-    //MainScene.AddObject(Duck);
-
-    auto* Duck2 = new OMesh(*Duck);
-    Duck2->Transform.SetPosition(Vector3(10.0, 5.0, 0.0));
-    Duck2->Transform.SetScale(Vector3(1.0, 1.0, 1.0));
-    Duck2->Transform.SetRotation(0.0, 0.0, 180.0);
-    Duck2->Mat = new RMaterialBlinnPhong(Vector3(1.0, 0.0, 1.0), 50.0);
-    //MainScene.AddObject(Duck2);
-    */
-
-    auto* B2 = new OBox;
-    B2->Transform.SetPosition(Vector3(0.0, 0.0, 6.0));
-    B2->Mat = new RMaterialPBR(Vector3(1.0), 0.5, 0.0, 1.0, 0.0, Vector3(0.0));
-    B2->Extent = Vector3(15.0, 15.0, 13.0);
-    MainScene.AddObject(B2);
+    auto S3 = MakeShared<OSphere>();
+    S3->Radius = 2.0;
+    S3->Transform.SetPosition(Vector3(9.0, 0.0, -3.0));
+    S3->SetMaterial(MakeShared<RMaterial>(RMaterial::Metal(0.2)));
+    //MainScene.AddObject(S3);
 
     
+    auto Teapot = MakeShared<OMesh>("dragon.obj");
+    Teapot->Transform.SetPosition(Vector3(11.0, 0.0, -3.0));
+    Teapot->Transform.SetRotation(Vector3(0.0, 0.0, 155.0));
+    Teapot->Transform.SetScale(Vector3(3.8, 3.8, 3.8));
+    auto ObjectMat = MakeShared<RMaterial>();
+    ObjectMat->InitializePBR(Vector3(1.0, 1.0, 0.0), Vector3(0.0), 0.2, 1.0, 1.0, 0.0);
+    Teapot->SetMaterial(ObjectMat);
+    MainScene.AddObject(Teapot);
     
+
     auto Render = std::async(std::launch::async, &RScene::Render, &MainScene);
     //MainScene.Render();
 
     
-    auto data = new float[HEIGHT * WIDTH * 3];
+    auto data = MakeUnique<float[]>(HEIGHT * WIDTH * 3);
     while (!glfwWindowShouldClose(Window))
     {
-        RTexture<Vector3> HDR = MainScene.GetTexture3D(RScene::SceneType3D::HDR);
-        ToneCompression(HDR);
+        auto HDR = MainScene.GetRenderTexture();
         
-        for (size_t i = 0; i < WIDTH * HEIGHT * 3; i += 3)
+        for (size_t i = 0; i < WIDTH * HEIGHT; i++)
         {
-            Vector3 Color = *(HDR.Begin() + i / 3);
-            data[i + 0] = Color.X;
-            data[i + 1] = Color.Y;
-            data[i + 2] = Color.Z;
-        }
-        
+            RColor Color = *(HDR->Data() + i);
+            data[i * 3 + 0] = Color.R;
+            data[i * 3 + 1] = Color.G;
+            data[i * 3 + 2] = Color.B;
+        }    
 
         glfwPollEvents();
 
@@ -111,15 +152,14 @@ int main()
         glBindTexture(GL_TEXTURE_2D, tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGB, GL_FLOAT, data.get());
         glBindTexture(GL_TEXTURE_2D, 0);
-
-        //match projection to window resolution (could be in reshape callback)
+       
+        
         glMatrixMode(GL_PROJECTION);
         glOrtho(-1.0, 1.0, -1.0, 1.0, -1, 1);
         glMatrixMode(GL_MODELVIEW);
 
-        //clear and draw quad with texture (could be in display callback)
         glClear(GL_COLOR_BUFFER_BIT);
         glBindTexture(GL_TEXTURE_2D, tex);
         glEnable(GL_TEXTURE_2D);
@@ -140,13 +180,13 @@ int main()
     
     
     Render.wait();
-    RTexture<Vector3> HDR = MainScene.GetTexture3D(RScene::SceneType3D::HDR);
+    auto HDR = MakeUnique<RTexture>(*MainScene.GetRenderTexture());
 
-    Bloom(HDR);
+    Bloom(HDR, 10.0);
     ToneCompression(HDR, 2.0);
     GammaCorrection(HDR);
 	
-    ImageUtility::SaveImage(HDR, ".\\Result\\final");
+    ImageUtility::SaveImage(HDR.get(), ".\\Result\\final");
 
     system("pause");
 }

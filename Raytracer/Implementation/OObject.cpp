@@ -1,23 +1,14 @@
 #include "../Headers/OObject.h" 
 
-const RMaterialPBR RMaterialPBR::Metal = RMaterialPBR(Vector3(1.0), 0.25, 1.0, 1.0, 0.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::RedPlastic = RMaterialPBR(Vector3(1.0, 0.0, 0.0), 0.0, 0.0, 1.0, 0.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::YellowRubber = RMaterialPBR(Vector3(1.0, 1.0, 0.0), 1.0, 0.0, 1.0, 0.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::BluePlastic = RMaterialPBR(Vector3(0.1, 0.1, 1.0), 0.1, 0.0, 1.0, 0.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::Mirror = RMaterialPBR(Vector3(1.0), 0.0, 1.0, 1.0, 0.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::Glass = RMaterialPBR(Vector3(0.0), 0.0, 0.0, 1.4, 1.0, Vector3(0.0));
-const RMaterialPBR RMaterialPBR::Diamond = RMaterialPBR(Vector3(0.0), 0.0, 0.0, 2.417, 1.0, Vector3(0.0));
 
-
-bool OBox::Intersects(const RRay Ray, RHit& OutHit) const
+bool OBox::Intersects(const RRay& Ray, RHit& OutHit) const
 {
 	const Vector3 LocalRayOrigin = Ray.Origin - Transform.GetPosition();
 	const Vector3 m = Vector3(1.0) / Ray.Direction;
 	const Vector3 n = m * LocalRayOrigin;
-	const Vector3 k = Vector3::Abs(m) * Extent;
+	const Vector3 k = m.Abs() * Extent;
 	const Vector3 t1 = -n - k;
 	const Vector3 t2 = -n + k;
-
 	const double tN = t1.GetMax(); //Near point distance
 	const double tF = t2.GetMin(); //Far point distance
 
@@ -50,7 +41,7 @@ void OBox::SetByMinMax(const Vector3& VMin, const Vector3& VMax)
 	Extent = (VMax - VMin) / 2;
 }
 
-bool OSphere::Intersects(const RRay Ray, RHit& OutHit) const
+bool OSphere::Intersects(const RRay& Ray, RHit& OutHit) const
 {
 	RRay LocalRay;
 	LocalRay.Direction = Transform.InverseTransformVector(Ray.Direction).Normalized();
@@ -86,7 +77,7 @@ bool OSphere::Intersects(const RRay Ray, RHit& OutHit) const
 	return true;
 }
 
-bool OPlane::Intersects(const RRay Ray, RHit& OutHit) const
+bool OPlane::Intersects(const RRay& Ray, RHit& OutHit) const
 {
 	const double Denom = Normal | Ray.Direction;
 	if (abs(Denom) > 1e-10)
@@ -104,28 +95,22 @@ bool OPlane::Intersects(const RRay Ray, RHit& OutHit) const
 	return false;
 }
 
-OMesh::OMesh(std::string Path)
+OMesh::OMesh(const char* Path)
 {
 	LoadModel(Path);
 }
 
-Vertex OMesh::GetVertex(uint32_t Index) const
+bool OMesh::LoadModel(const char* Path)
 {
-	return Vertices[Index];
-}
+	Triangles.clear();
+	Vertices.clear();
 
-Vertex OMesh::GetVertex(uint32_t TriangleIndex, uint8_t LocalIndex) const
-{
-	return *Triangles[TriangleIndex].Vertices[LocalIndex];
-}
 
-bool OMesh::LoadModel(std::string Path)
-{
 	std::ifstream In;
 	In.open(Path, std::ifstream::in);
 	if (In.fail())
 	{
-		LOG("Mesh", LogType::ERROR, "Failed to load mesh %s", Path.c_str());
+		LOG("Mesh", LogType::ERROR, "Failed to load mesh %s", Path);
 		return false;
 	}
 
@@ -140,36 +125,34 @@ bool OMesh::LoadModel(std::string Path)
 			iss >> Trash;
 			Vector3 V;
 			iss >> V.X >> V.Y >> V.Z;
-			Vertices.push_back(Vertex(V, Vector3(0.0)));
+			Vertices.push_back(MakeShared<Vertex>(V, Vector3(0.0)));
 		}
 		else if (Line.substr(0, 3) == "vn ")
 		{
 			iss >> Trash >> Trash;
 			Vector3 N;
-			iss >> N.X >> N.Y >> N.Z;
-			//Normals.push_back(N.Normalized());
+			iss >> N.X >> N.Y >> N.Z;			
 		}
 		else if (Line.substr(0, 3) == "vt ")
 		{
 			iss >> Trash >> Trash;
 			Vector2 UV;
-			iss >> UV.X >> UV.Y;
-			//UVs.push_back(UV);
+			iss >> UV.X >> UV.Y;			
 		}
 		else if (Line.substr(0, 2) == "f ")
 		{
 			iss >> Trash;
 			uint32_t F, T, N;
 			std::string S1, S2, S3;
-			Triangle Tri;
+			auto Tri = MakeShared<Triangle>();
 			iss >> S1 >> S2 >> S3;
 			
 			F = std::stoi(S1);
-			Tri.Vertices[0] = &Vertices[F - 1];
+			Tri->SetVertex(0, Vertices[F - 1]);
 			F = std::stoi(S2);
-			Tri.Vertices[1] = &Vertices[F - 1];
+			Tri->SetVertex(1, Vertices[F - 1]);
 			F = std::stoi(S3);
-			Tri.Vertices[2] = &Vertices[F - 1];
+			Tri->SetVertex(2, Vertices[F - 1]);
 
 			Triangles.push_back(Tri);
 		}
@@ -177,26 +160,24 @@ bool OMesh::LoadModel(std::string Path)
 	In.close();
 
 	UpdateAABB();
+	UpdateSmoothNormals();
 
 	LOG("Mesh", LogType::LOG, "Successfully loaded mesh %s, V:%d, F:%d, Extent:(%s)",
-		Path.c_str(),
-		NVerts(),
-		NFaces(),
-		AABB.Extent.ToString().c_str());
-
+		Path,
+		CountVerts(),
+		CountFaces(),
+		BBox.GetExtent().ToString().c_str());
 	
-
 	return true;
 }
 
 void OMesh::UpdateAABB()
 {
-	Vector3 Min(GetVertex(0).Position), Max(GetVertex(0).Position);
+	Vector3 Min(DBL_MAX), Max(-DBL_MAX);
 
-	//#pragma omp parallel for reduction(min,max:Min,Max)
-	for (size_t i = 1; i < NVerts(); i++)
+	for (size_t i = 0; i < CountVerts(); i++)
 	{
-		Vector3 V = GetVertex(i).Position;
+		Vector3 V = Vertices[i]->Position;
 		
 		Min.X = std::min(Min.X, V.X);
 		Min.Y = std::min(Min.Y, V.Y);
@@ -207,66 +188,111 @@ void OMesh::UpdateAABB()
 		Max.Z = std::max(Max.Z, V.Z);
 	}
 
-	AABB.SetByMinMax(Min, Max);
-	AABB.Transform.SetPosition(AABB.Transform.GetPosition() + this->Transform.GetPosition());
+	BBox.Min = Min;
+	BBox.Max = Max;
 }
 
-uint32_t OMesh::NVerts() const
+AABB Triangle::GetBoundingBox() const
 {
-	return Vertices.size();
-}
+	Vector3 Max, Min;
 
-uint32_t OMesh::NFaces() const
-{
-	return Triangles.size();
+	const Vector3 P1 = Transform.TransformPosition(Vertices[0]->Position);
+	const Vector3 P2 = Transform.TransformPosition(Vertices[1]->Position);
+	const Vector3 P3 = Transform.TransformPosition(Vertices[2]->Position);
+
+	Max.X = std::max(std::max(P1.X, P2.X), P3.X);
+	Max.Y = std::max(std::max(P1.Y, P2.Y), P3.Y);
+	Max.Z = std::max(std::max(P1.Z, P2.Z), P3.Z);
+
+	Min.X = std::min(std::min(P1.X, P2.X), P3.X);
+	Min.Y = std::min(std::min(P1.Y, P2.Y), P3.Y);
+	Min.Z = std::min(std::min(P1.Z, P2.Z), P3.Z);
+
+	return AABB(Min, Max);
 }
 
 /* Moller-Trumbore intersection algorithm */
-bool OMesh::TriangleIntersect(const uint32_t FaceIndex, const RRay Ray, RHit& OutHit) const
+bool Triangle::Intersects(const RRay& Ray, RHit& OutHit) const
 {
-	Vector3 Edge1 = GetVertex(FaceIndex, 1).Position - GetVertex(FaceIndex, 0).Position;
-	Vector3 Edge2 = GetVertex(FaceIndex, 2).Position - GetVertex(FaceIndex, 0).Position;
-	Vector3 P = Ray.Direction ^ Edge2;
+	RRay LocalRay;
+	LocalRay.Origin = Transform.InverseTransformPosition(Ray.Origin);
+	LocalRay.Direction = Transform.InverseTransformVector(Ray.Direction).Normalized();
+
+	const Vertex V1 = *Vertices[0];
+	const Vertex V2 = *Vertices[1];
+	const Vertex V3 = *Vertices[2];
+
+	Vector3 Edge1 = V2.Position - V1.Position;
+	Vector3 Edge2 = V3.Position - V1.Position;
+	Vector3 P = LocalRay.Direction ^ Edge2;
 
 	double Det = P | Edge1;
 	if (std::abs(Det) < SMALL_NUMBER) return false;
 
 	double InvDet = 1.0 / Det;
 
-	Vector3 T = Ray.Origin - GetVertex(FaceIndex, 0).Position;
-	double U = (T | P) * InvDet;
+	Vector3 T = LocalRay.Origin - V1.Position;
+	const double U = (T | P) * InvDet;
 	if (U < 0.0 || U > 1.0) return false;
 
 	Vector3 Q = T ^ Edge1;
-	double V = (Ray.Direction | Q) * InvDet;
+	const double V = (LocalRay.Direction | Q) * InvDet;
 	if (V < 0.0 || U + V > 1.0) return false;
 
 	if ((Edge2 | Q) * InvDet < SMALL_NUMBER) return false;
 
-	OutHit.Mat = this->Mat;
-	OutHit.Depth = (Edge2 | Q) * InvDet;
-	OutHit.Position = Ray.Origin + Ray.Direction * OutHit.Depth;
-	OutHit.Normal = (Edge1 ^ Edge2);
+	OutHit.Mat = this->Mat;	
+	OutHit.Position = Transform.TransformPosition(LocalRay.Origin + LocalRay.Direction * (Edge2 | Q) * InvDet);
+	OutHit.Depth = (Ray.Origin - OutHit.Position).Length();
+	
+	if (bSmoothShading)
+	{
+		OutHit.Normal = U * V2.Normal + V * V3.Normal + (1.0 - U - V) * V1.Normal;
+	}
+	else
+	{
+		OutHit.Normal = (Edge1 ^ Edge2).Normalized();
+	}
+	OutHit.Normal = Transform.TransformVector(OutHit.Normal).Normalized();
 
 	return true;
 }
 
-bool OMesh::Intersects(const RRay Ray, RHit& OutHit) const
+void OMesh::UpdateSmoothNormals()
+{
+	#pragma omp parallel for
+	for (int32_t i = 0; i < CountFaces(); i++)
+	{
+		const Vector3 Normal = Triangles[i]->RawNormal();
+		Triangles[i]->GetVertex(0)->Normal += Normal;
+		Triangles[i]->GetVertex(1)->Normal += Normal;
+		Triangles[i]->GetVertex(2)->Normal += Normal;
+	}
+	
+	#pragma omp parallel for
+	for (int32_t i = 0; i < CountVerts(); i++)
+	{
+		Vertices[i]->Normal = Vertices[i]->Normal.Normalized();
+	}
+}
+
+bool OMesh::Intersects(const RRay& Ray, RHit& OutHit) const
 {
 	RRay LocalRay;
 	LocalRay.Origin = Transform.InverseTransformPosition(Ray.Origin);
 	LocalRay.Direction = Transform.InverseTransformVector(Ray.Direction).Normalized();
 
-	if (!AABB.Intersects(LocalRay, OutHit)) return false;
+
+	if (!BBox.Intersects(LocalRay)) return false;
 
 	double Distance = INFINITY;
 	bool bHit = false;
 
-	//#pragma omp parallel for
-	for (size_t i = 0; i < NFaces(); i++)
+	#pragma omp parallel for
+	for (int32_t i = 0; i < CountFaces(); i++)
 	{
 		RHit TempHit;
-		if (TriangleIntersect(i, LocalRay, TempHit) && TempHit.Depth < Distance)
+		if (Triangles[i]->Intersects(Ray, TempHit) && TempHit.Depth < Distance)
 		{
 			bHit = true;
 			Distance = TempHit.Depth;
@@ -274,13 +300,5 @@ bool OMesh::Intersects(const RRay Ray, RHit& OutHit) const
 		}
 	}
 
-	if (bHit)
-	{
-		OutHit.Position = Transform.TransformPosition(OutHit.Position);
-		OutHit.Normal = Transform.TransformVector(OutHit.Normal).Normalized();
-		OutHit.Depth = (OutHit.Position - Ray.Origin).Length();
-		return true;
-	}
-
-	return false;	
+	return bHit;	
 }
