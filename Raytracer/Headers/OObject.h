@@ -165,7 +165,7 @@ private:
 	void UpdateSmoothNormals();
 
 public:
-	bool LoadModel(const char* Path);
+	bool LoadModel(const std::string& Path);
 	size_t CountVerts() const { return Vertices.size(); }
 	size_t CountFaces() const { return Triangles.size(); }
 

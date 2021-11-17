@@ -100,7 +100,7 @@ OMesh::OMesh(const char* Path)
 	LoadModel(Path);
 }
 
-bool OMesh::LoadModel(const char* Path)
+bool OMesh::LoadModel(const std::string& Path)
 {
 	Triangles.clear();
 	Vertices.clear();
@@ -110,7 +110,7 @@ bool OMesh::LoadModel(const char* Path)
 	In.open(Path, std::ifstream::in);
 	if (In.fail())
 	{
-		LOG("Mesh", LogType::ERROR, "Failed to load mesh %s", Path);
+		LOG("Mesh", LogType::ERROR, "Failed to load mesh {}", Path);
 		return false;
 	}
 
@@ -162,11 +162,11 @@ bool OMesh::LoadModel(const char* Path)
 	UpdateAABB();
 	UpdateSmoothNormals();
 
-	LOG("Mesh", LogType::LOG, "Successfully loaded mesh %s, V:%d, F:%d, Extent:(%s)",
+	LOG("Mesh", LogType::LOG, "Successfully loaded mesh {}, V:{}, F:{}, Extent:({})",
 		Path,
 		CountVerts(),
 		CountFaces(),
-		BBox.GetExtent().ToString().c_str());
+		BBox.GetExtent().ToString());
 	
 	return true;
 }

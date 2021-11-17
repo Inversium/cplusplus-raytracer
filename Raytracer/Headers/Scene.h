@@ -39,7 +39,7 @@ private:
 	/* Container with all scene lights */
 	std::vector<SharedPtr<RLight>> SceneLights;
 
-	UniquePtr<RTexture> EnvironmentTexture = nullptr;
+	SharedPtr<RTexture> EnvironmentTexture = nullptr;
 
 	UniquePtr<RShader> Shader = nullptr;
 
@@ -63,7 +63,7 @@ public:
 	
 	void Render();
 
-	void SetEnvironmentTexture(UniquePtr<RTexture>& Texture);
+	void SetEnvironmentTexture(SharedPtr<RTexture>& Texture);
 
 	bool QueryScene(const RRay& Ray, RHit& OutHit) const;
 

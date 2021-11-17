@@ -83,8 +83,8 @@ void RScene::BuildBVH()
 
 	std::chrono::duration<double, std::milli> DeltaTime = EndTime - StartTime;
 	const double Time = DeltaTime.count() / 1000.0;
-	LOG("Scene", LogType::LOG, "BVH was built in %.2f seconds", Time);
-	LOG("Scene", LogType::LOG, "BVH has %d Primitives in %d Leaves", 
+	LOG("Scene", LogType::LOG, "BVH was built in {:.2f} seconds", Time);
+	LOG("Scene", LogType::LOG, "BVH has {} Primitives in {} Leaves", 
 		CountPrimitives(BVHRoot), 
 		CountLeaves(BVHRoot));
 }
@@ -138,7 +138,7 @@ void RScene::Render()
 	const Vector3 CameraPosition(0.0, 0.0, 0.0);
 	//Vector3 CameraDirection(1.0, 0.0, 0.0);
 
-	uint32_t CurrentPixel = 0;
+	int32_t CurrentPixel = 0;
 	
 	#pragma omp parallel for
 	for (int32_t i = 0; i < Height; i++)
@@ -189,8 +189,12 @@ void RScene::Render()
 			}
 
 			RenderTexture->Write(Pixel, j, i);
+			
+			#pragma omp critical
+			{
+				DrawPercent("Scene", "Rendering", CurrentPixel, Height * Width, 5);
+			}
 
-			DrawPercent("Scene", "Rendering", CurrentPixel, Height * Width, 5);
 		}
 	}
 
@@ -198,12 +202,12 @@ void RScene::Render()
 
 	std::chrono::duration<double, std::milli> DeltaTime = EndTime - StartTime;
 	const double Time = DeltaTime.count() / 1000.0;
-	LOG("Scene", LogType::LOG, "Rendering Time: %.2f seconds, total rays shooted: %d", Time, TotalRaysShooted);
+	LOG("Scene", LogType::LOG, "Rendering Time: {:.2f} seconds, total rays shooted: {}", Time, TotalRaysShooted);
 }
 
-void RScene::SetEnvironmentTexture(UniquePtr<RTexture>& Texture)
+void RScene::SetEnvironmentTexture(SharedPtr<RTexture>& Texture)
 {
-	EnvironmentTexture = std::move(Texture);
+	EnvironmentTexture = Texture;
 }
 
 RColor RScene::RenderPixel(const RRay& Ray) const

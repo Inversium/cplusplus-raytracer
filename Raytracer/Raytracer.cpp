@@ -84,15 +84,17 @@ int main()
     MainScene.SetShader(MakeUnique<RShader>());
     MainScene.SetBRDF(MakeUnique<CookTorrance>());
 
-    auto EnvMap = MakeUnique<RTexture>(0, 0);
+    auto EnvMap = MakeShared<RTexture>(0, 0);
     EnvMap->Load("envmap.jpg");
     MainScene.SetEnvironmentTexture(EnvMap);
 
+    /*
     GLFWwindow* Window;
     glfwInit();
     Window = glfwCreateWindow(WIDTH, HEIGHT, "Raytracing", nullptr, nullptr);
     glfwMakeContextCurrent(Window);
     glfwSetWindowSizeCallback(Window, &Resize);
+    */
 
     AddCornellBox(&MainScene, { 0.0, 0.0, 3.0 }, { 14.0, 10.0, 8.0 });
    
@@ -116,20 +118,20 @@ int main()
     //MainScene.AddObject(S3);
 
     
-    auto Teapot = MakeShared<OMesh>("dragon.obj");
-    Teapot->Transform.SetPosition(Vector3(11.0, 0.0, -3.0));
+    auto Teapot = MakeShared<OMesh>("lucy.obj");
+    Teapot->Transform.SetPosition(Vector3(14.0, -6.0, -3.0));
     Teapot->Transform.SetRotation(Vector3(0.0, 0.0, 155.0));
-    Teapot->Transform.SetScale(Vector3(3.8, 3.8, 3.8));
+    Teapot->Transform.SetScale(Vector3(0.01, 0.01, 0.01));
     auto ObjectMat = MakeShared<RMaterial>();
     ObjectMat->InitializePBR(Vector3(1.0, 1.0, 0.0), Vector3(0.0), 0.2, 1.0, 1.0, 0.0);
     Teapot->SetMaterial(ObjectMat);
     MainScene.AddObject(Teapot);
     
 
-    auto Render = std::async(std::launch::async, &RScene::Render, &MainScene);
-    //MainScene.Render();
+    //auto Render = std::async(std::launch::async, &RScene::Render, &MainScene);
+    MainScene.Render();
 
-    
+    /*
     auto data = MakeUnique<float[]>(HEIGHT * WIDTH * 3);
     while (!glfwWindowShouldClose(Window))
     {
@@ -177,17 +179,20 @@ int main()
     }
 
     glfwTerminate();
+    */
     
     
-    Render.wait();
+    //Render.wait();
     auto HDR = MakeUnique<RTexture>(*MainScene.GetRenderTexture());
 
-    Bloom(HDR, 10.0);
+    //Bloom(HDR, 10.0);
     ToneCompression(HDR, 2.0);
     GammaCorrection(HDR);
 	
-    ImageUtility::SaveImage(HDR.get(), ".\\Result\\final");
+    ImageUtility::SaveImage(HDR.get(), ".\\Result\\final", EImageFormat::PNG, true);
 
     system("pause");
+
+    return 0;
 }
 

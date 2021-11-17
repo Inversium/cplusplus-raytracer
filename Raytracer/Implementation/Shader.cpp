@@ -15,7 +15,7 @@ RShader::RShader()
 	bDirectSampling = false;
 	bShadows = true;
 	bTranslucency = true;
-	SamplesIndirect = 128;
+	SamplesIndirect = 4;
 	SamplesDirect = 64;
 	RayDepth = 1;
 }
